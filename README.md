@@ -1,6 +1,6 @@
 # TripMate frontend
 
-Next.js 16 BFF and UI for TripMate. Browser code only calls same-origin `/api/*` routes; the Go URL is available exclusively to `src/lib/server/backend.ts`.
+Next.js 16 BFF and UI for TripMate. Browser code only calls same-origin `/api/*` routes; the Go URL and access/refresh tokens remain server-only. NextAuth stores the tokens in its encrypted, httpOnly JWT cookie and rotates access through the Go service.
 
 ## Local setup
 
@@ -11,7 +11,7 @@ pnpm dev
 curl http://localhost:3000/api/health
 ```
 
-Run all local gates with `pnpm verify`. The backend must be running on the `BACKEND_BASE_URL` configured in `.env.local` for the health proxy to respond.
+Run all local gates with `pnpm verify`. The backend must be running on the `BACKEND_BASE_URL` configured in `.env.local`. Set a unique, high-entropy `NEXTAUTH_SECRET` outside local development. Next.js 16 route protection is implemented in `src/proxy.ts`.
 
 ## Commands
 

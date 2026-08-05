@@ -1,0 +1,125 @@
+import "server-only"
+
+import type { NextAuthOptions, User } from "next-auth"
+import type { JWT } from "next-auth/jwt"
+import CredentialsProvider from "next-auth/providers/credentials"
+
+import { loginSchema } from "@/features/auth/schema"
+import type { BackendSession } from "@/features/auth/types"
+import { backendFetch } from "@/lib/server/backend"
+
+type TokenUser = User & {
+  accessToken: string
+  refreshToken: string
+  accessTokenExpiresAt: string
+  refreshTokenExpiresAt: string
+}
+
+const refreshes = new Map<string, Promise<JWT>>()
+
+export async function authorizeCredentials(credentials: Record<string, string> | undefined): Promise<TokenUser> {
+  const parsed = loginSchema.safeParse(credentials)
+  if (!parsed.success) throw new Error("VALIDATION_FAILED")
+
+  const { envelope } = await backendFetch<BackendSession>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(parsed.data),
+  })
+  if (!envelope.success || !envelope.data) throw new Error(envelope.code)
+
+  return {
+    id: envelope.data.user.id,
+    email: envelope.data.user.email,
+    name: envelope.data.user.name,
+    image: envelope.data.user.avatar_url,
+    accessToken: envelope.data.access_token,
+    refreshToken: envelope.data.refresh_token,
+    accessTokenExpiresAt: envelope.data.access_token_expires_at,
+    refreshTokenExpiresAt: envelope.data.refresh_token_expires_at,
+  }
+}
+
+async function rotate(token: JWT): Promise<JWT> {
+  try {
+    const { envelope } = await backendFetch<BackendSession>("/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: token.refreshToken }),
+    })
+    if (!envelope.success || !envelope.data) throw new Error(envelope.code)
+    return {
+      ...token,
+      name: envelope.data.user.name,
+      email: envelope.data.user.email,
+      picture: envelope.data.user.avatar_url,
+      accessToken: envelope.data.access_token,
+      refreshToken: envelope.data.refresh_token,
+      accessTokenExpiresAt: envelope.data.access_token_expires_at,
+      refreshTokenExpiresAt: envelope.data.refresh_token_expires_at,
+      error: undefined,
+    }
+  } catch {
+    return { ...token, error: "RefreshFailed" }
+  }
+}
+
+export function refreshAccessToken(token: JWT): Promise<JWT> {
+  const key = token.sub ?? "unknown"
+  const existing = refreshes.get(key)
+  if (existing) return existing
+  const pending = rotate(token).finally(() => refreshes.delete(key))
+  refreshes.set(key, pending)
+  return pending
+}
+
+export async function logoutRefreshToken(refreshToken: string | undefined) {
+  if (!refreshToken) return
+  try {
+    await backendFetch("/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+  } catch {
+    // The local encrypted session is cleared even when the backend is unavailable.
+  }
+}
+
+export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
+  pages: { signIn: "/login" },
+  providers: [
+    CredentialsProvider({
+      name: "Email and password",
+      credentials: { email: { type: "email" }, password: { type: "password" } },
+      authorize: authorizeCredentials,
+    }),
+  ],
+  events: {
+    async signOut({ token }) {
+      await logoutRefreshToken(token?.refreshToken)
+    },
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        const authenticated = user as TokenUser
+        return {
+          ...token,
+          sub: authenticated.id,
+          accessToken: authenticated.accessToken,
+          refreshToken: authenticated.refreshToken,
+          accessTokenExpiresAt: authenticated.accessTokenExpiresAt,
+          refreshTokenExpiresAt: authenticated.refreshTokenExpiresAt,
+        }
+      }
+      const expiresAt = new Date(token.accessTokenExpiresAt).getTime()
+      if (Number.isFinite(expiresAt) && Date.now() < expiresAt - 30_000) return token
+      return refreshAccessToken(token)
+    },
+    async session({ session, token }) {
+      if (session.user) session.user.id = token.sub ?? ""
+      session.error = token.error
+      return session
+    },
+  },
+}
