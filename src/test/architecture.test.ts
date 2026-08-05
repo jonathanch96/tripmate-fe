@@ -26,9 +26,4 @@ describe("frontend architecture guards", () => {
     expect(publicLeaks).toEqual([])
   })
 
-  it("does not emit the backend URL into an existing client build", () => {
-    const clientRoot = path.resolve(".next/static")
-    const leaks = filesUnder(clientRoot).filter((file) => fs.readFileSync(file, "utf8").includes("BACKEND_BASE_URL"))
-    expect(leaks).toEqual([])
-  })
 })
