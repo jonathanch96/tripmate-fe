@@ -16,6 +16,7 @@ type TokenUser = User & {
 }
 
 const refreshes = new Map<string, Promise<JWT>>()
+const refreshGracePeriodMs = 5_000
 
 export async function authorizeCredentials(credentials: Record<string, string> | undefined): Promise<TokenUser> {
   const parsed = loginSchema.safeParse(credentials)
@@ -63,11 +64,17 @@ async function rotate(token: JWT): Promise<JWT> {
 }
 
 export function refreshAccessToken(token: JWT): Promise<JWT> {
-  const key = token.sub ?? "unknown"
+  const key = `${token.sub ?? "unknown"}:${token.refreshToken}`
   const existing = refreshes.get(key)
   if (existing) return existing
-  const pending = rotate(token).finally(() => refreshes.delete(key))
+  const pending = rotate(token)
   refreshes.set(key, pending)
+  void pending.finally(() => {
+    const timer = setTimeout(() => {
+      if (refreshes.get(key) === pending) refreshes.delete(key)
+    }, refreshGracePeriodMs)
+    timer.unref?.()
+  })
   return pending
 }
 

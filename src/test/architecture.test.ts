@@ -26,4 +26,11 @@ describe("frontend architecture guards", () => {
     expect(publicLeaks).toEqual([])
   })
 
+  it("declares BFF resource routes explicitly", () => {
+    const routeFiles = filesUnder(path.resolve("src/app/api"))
+      .filter((file) => file.endsWith("route.ts"))
+      .map((file) => path.relative(process.cwd(), file))
+    expect(routeFiles.filter((file) => file.includes("[...path]"))).toEqual([])
+  })
+
 })

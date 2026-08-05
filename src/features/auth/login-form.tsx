@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { authErrorCopy } from "@/features/auth/error-copy"
 import { loginSchema, type LoginInput } from "@/features/auth/schema"
 
 export function LoginForm({ nextPath }: { nextPath: string }) {
@@ -18,13 +19,18 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
 
   async function submit(values: LoginInput) {
     setError(undefined)
-    const result = await signIn("credentials", { ...values, redirect: false })
-    if (!result?.ok) {
-      setError(result?.error === "VALIDATION_FAILED" ? "Check the highlighted fields" : "Email or password is incorrect")
-      return
+    try {
+      const result = await signIn("credentials", { ...values, redirect: false })
+      if (!result?.ok) {
+        const code = result?.error === "CredentialsSignin" ? "INVALID_CREDENTIALS" : result?.error
+        setError(authErrorCopy("login", code))
+        return
+      }
+      router.push(nextPath)
+      router.refresh()
+    } catch {
+      setError(authErrorCopy("login", undefined))
     }
-    router.push(nextPath)
-    router.refresh()
   }
 
   return (

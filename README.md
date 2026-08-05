@@ -18,6 +18,7 @@ Run all local gates with `pnpm verify`. The backend must be running on the `BACK
 - `pnpm dev` — local development server
 - `pnpm test` — Vitest contract and architecture guards
 - `pnpm test:bundle` — production build followed by the fail-closed client bundle leak guard
+- `pnpm test:e2e` — Playwright session persistence and concurrent refresh test (manages local Postgres and both dev servers)
 - `pnpm lint` — ESLint
 - `pnpm typecheck` — TypeScript
 - `pnpm build` — production build

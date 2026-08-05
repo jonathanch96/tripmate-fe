@@ -1,0 +1,1 @@
+import type {NextRequest}from"next/server";import{authenticatedProxy}from"@/lib/server/authenticated-proxy";export function GET(r:NextRequest){return authenticatedProxy(r,`/trips${r.nextUrl.search}`)};export function POST(r:NextRequest){return authenticatedProxy(r,"/trips")}

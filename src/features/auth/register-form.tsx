@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { authErrorCopy } from "@/features/auth/error-copy"
 import { registerSchema, type RegisterInput } from "@/features/auth/schema"
 
 type RegistrationResponse = { success: boolean; code: string }
@@ -20,21 +21,25 @@ export function RegisterForm() {
 
   async function submit(values: RegisterInput) {
     setError(undefined)
-    const response = await fetch("/api/auth/register", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values),
-    })
-    const result = await response.json() as RegistrationResponse
-    if (!response.ok || !result.success) {
-      setError(result.code === "EMAIL_ALREADY_REGISTERED" ? "That email already has an account" : "We could not create your account")
-      return
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values),
+      })
+      const result = await response.json() as RegistrationResponse
+      if (!response.ok || !result.success) {
+        setError(authErrorCopy("register", result.code))
+        return
+      }
+      const login = await signIn("credentials", { email: values.email, password: values.password, redirect: false })
+      if (!login?.ok) {
+        setError("Your account was created. Please sign in.")
+        return
+      }
+      router.push("/")
+      router.refresh()
+    } catch {
+      setError(authErrorCopy("register", undefined))
     }
-    const login = await signIn("credentials", { email: values.email, password: values.password, redirect: false })
-    if (!login?.ok) {
-      setError("Your account was created. Please sign in.")
-      return
-    }
-    router.push("/")
-    router.refresh()
   }
 
   return (

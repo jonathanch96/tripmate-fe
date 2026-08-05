@@ -1,0 +1,1 @@
+export default function TripPage(){return <section><h2 className="text-xl font-semibold">Trip overview</h2><p className="mt-2 text-muted-foreground">Expenses and balances arrive in the next sprint.</p></section>}

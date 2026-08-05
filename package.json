@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude src/test/bundle-architecture.test.ts",
     "test:bundle": "pnpm build && vitest run src/test/bundle-architecture.test.ts",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:bundle"
   },

@@ -40,6 +40,8 @@ describe("NextAuth backend integration", () => {
       expect.objectContaining({ accessToken: "access-new", refreshToken: "refresh-new" }),
       expect.objectContaining({ accessToken: "access-new", refreshToken: "refresh-new" }),
     ])
+    await refreshAccessToken(token)
+    expect(backendFetch).toHaveBeenCalledTimes(1)
   })
 
   it("revokes the refresh token on sign out", async () => {
