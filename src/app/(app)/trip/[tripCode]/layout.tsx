@@ -41,6 +41,7 @@ export default async function TripLayout({
         </div>
         <nav className="flex gap-4 text-sm">
           <Link href={`/trip/${tripCode}`}>Overview</Link>
+          <Link href={`/trip/${tripCode}/expenses`}>Expenses</Link>
           <Link href={`/trip/${tripCode}/settings`}>Settings</Link>
         </nav>
       </header>

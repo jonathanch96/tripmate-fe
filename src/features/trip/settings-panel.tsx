@@ -95,6 +95,11 @@ function BankEditor({
         <Button type="submit" disabled={mutation.isPending}>Save</Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
       </div>
+      {form.formState.errors.accountNumber ? (
+        <p role="alert" className="text-sm text-destructive md:col-span-4">
+          {form.formState.errors.accountNumber.message}
+        </p>
+      ) : null}
     </form>
   )
 }

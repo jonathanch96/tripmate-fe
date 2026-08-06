@@ -103,4 +103,14 @@ describe("SettingsPanel", () => {
     expect(accountNumber.value).toBe("")
     expect(accountNumber.placeholder).toBe("Enter a new account number to replace the masked value")
   })
+
+  it("blocks a masked account number at the actual form submission boundary", async () => {
+    render(<SettingsPanel />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole("button", { name: "Edit bank details for Member" }))
+    fireEvent.change(screen.getByLabelText("Account number"), { target: { value: "••••4321" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Enter the complete account number")
+    expect(apiFetch).not.toHaveBeenCalled()
+  })
 })

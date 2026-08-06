@@ -1,0 +1,33 @@
+export type MoneyRow = { userId: string; amount: string }
+
+export type ExpensePayload = {
+  expenseDate: string
+  description: string
+  amount: string
+  currency: string
+  splitType: "equal" | "manual"
+  payers: MoneyRow[]
+  participants?: string[]
+  splits?: MoneyRow[]
+  note?: string | null
+}
+
+export type Expense = {
+  id: string
+  tripId: string
+  expenseDate: string
+  description: string
+  amount: string
+  currency: string
+  splitType: "equal" | "manual" | "item"
+  status: "pending" | "approved" | "rejected"
+  source: "manual" | "receipt"
+  note: string | null
+  payers: Array<MoneyRow & { user?: { id: string; name: string; email: string } }>
+  splits: Array<MoneyRow & { user?: { id: string; name: string; email: string } }>
+  canEdit: boolean
+  canDelete: boolean
+  version: number
+  createdAt: string
+  updatedAt: string
+}
