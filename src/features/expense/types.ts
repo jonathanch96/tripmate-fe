@@ -27,6 +27,8 @@ export type Expense = {
   splits: Array<MoneyRow & { user?: { id: string; name: string; email: string } }>
   canEdit: boolean
   canDelete: boolean
+  canApprove: boolean
+  canReject: boolean
   version: number
   createdAt: string
   updatedAt: string

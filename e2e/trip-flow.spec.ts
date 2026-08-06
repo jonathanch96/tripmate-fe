@@ -24,7 +24,7 @@ async function signIn(page: Page, email: string) {
 test("planner creates and updates a trip, invites a member, and join remains idempotent", async ({
   browser,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   const plannerContext = await browser.newContext();
   const memberContext = await browser.newContext();
   const joinerContext = await browser.newContext();
@@ -55,6 +55,25 @@ test("planner creates and updates a trip, invites a member, and join remains ide
   await planner.getByPlaceholder("friend@example.com").fill(memberEmail);
   await planner.getByRole("button", { name: "Invite" }).click();
   await expect(planner.getByText("Participant added")).toBeVisible();
+
+  // Precompile the expenses route before refreshing the deliberately
+  // four-second access token used by this test server.
+  await planner.goto(`/trip/${code}/expenses`);
+  await signIn(planner, plannerEmail);
+  await planner.goto(`/trip/${code}/expenses`);
+  await planner.getByRole("button", { name: "Add expense" }).click();
+  await planner.getByLabel("Description").fill("Multi-payer dinner");
+  await planner.getByLabel("Date").fill("2026-08-25");
+  await planner.getByLabel("Amount").fill("12000.00");
+  await planner.getByLabel("Payer 1 amount").fill("8000.00");
+  await planner.getByRole("button", { name: "Add payer" }).click();
+  await planner.getByLabel("Payer 2").selectOption({ label: "Member" });
+  await planner.getByLabel("Payer 2 amount").fill("4000.00");
+  await planner.getByRole("button", { name: "Save expense" }).click();
+  const dinner = planner.getByRole("row").filter({ hasText: "Multi-payer dinner" });
+  await expect(dinner).toHaveCount(1);
+  await expect(dinner).toContainText("Planner");
+  await expect(dinner).toContainText("Member");
 
   // Precompile the overview before authenticating against the deliberately
   // short-lived test access token.
