@@ -12,7 +12,15 @@ import { Input } from "@/components/ui/input"
 import { authErrorCopy } from "@/features/auth/error-copy"
 import { registerSchema, type RegisterInput } from "@/features/auth/schema"
 
-type RegistrationResponse = { success: boolean; code: string }
+type RegistrationResponse = {
+  success: boolean
+  code: string
+  data?: { pendingInvitations?: unknown[] }
+}
+
+export function registrationDestination(result: RegistrationResponse) {
+  return result.data?.pendingInvitations?.length ? "/trips" : "/"
+}
 
 export function RegisterForm() {
   const router = useRouter()
@@ -35,7 +43,7 @@ export function RegisterForm() {
         setError("Your account was created. Please sign in.")
         return
       }
-      router.push("/")
+      router.push(registrationDestination(result))
       router.refresh()
     } catch {
       setError(authErrorCopy("register", undefined))

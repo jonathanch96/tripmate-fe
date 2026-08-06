@@ -55,9 +55,12 @@ function BankEditor({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+  const hasMaskedAccount = /^[•*]+/.test(participant.bankInfo?.accountNumber ?? "")
   const form = useForm<ParticipantBankInput>({
     resolver: zodResolver(participantBankSchema),
-    defaultValues: participant.bankInfo ?? { bankName: "", accountNumber: "", accountHolder: "" },
+    defaultValues: participant.bankInfo
+      ? { ...participant.bankInfo, accountNumber: hasMaskedAccount ? "" : participant.bankInfo.accountNumber }
+      : { bankName: "", accountNumber: "", accountHolder: "" },
   })
   const mutation = useMutation({
     mutationFn: async (bankInfo: ParticipantBankInput) => {
@@ -82,7 +85,11 @@ function BankEditor({
   return (
     <form className="mt-3 grid gap-2 rounded-lg border p-3 md:grid-cols-4" onSubmit={form.handleSubmit((value) => mutation.mutate(value))}>
       <Input aria-label="Bank name" placeholder="Bank name" {...form.register("bankName")} />
-      <Input aria-label="Account number" placeholder="Account number" {...form.register("accountNumber")} />
+      <Input
+        aria-label="Account number"
+        placeholder={hasMaskedAccount ? "Enter a new account number to replace the masked value" : "Account number"}
+        {...form.register("accountNumber")}
+      />
       <Input aria-label="Account holder" placeholder="Account holder" {...form.register("accountHolder")} />
       <div className="flex gap-2">
         <Button type="submit" disabled={mutation.isPending}>Save</Button>

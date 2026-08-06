@@ -29,7 +29,12 @@ export const participantAddSchema = z.object({ userId: z.uuid() }).strict()
 export const participantBankSchema = z
   .object({
     bankName: z.string().trim().min(1).max(120),
-    accountNumber: z.string().trim().min(1).max(120),
+    accountNumber: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .refine((value) => !/^[•*]+/.test(value), "Enter the complete account number"),
     accountHolder: z.string().trim().min(1).max(160),
   })
   .strict()

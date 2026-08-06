@@ -13,4 +13,5 @@ export type BackendSession = {
   refresh_token: string
   access_token_expires_at: string
   refresh_token_expires_at: string
+  pending_invitations?: Array<{ id: string; trip_id: string; email: string; token: string; status: string; expires_at: string }>
 }

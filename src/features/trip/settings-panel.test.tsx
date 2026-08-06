@@ -42,6 +42,14 @@ const participants: Participant[] = [
     bankInfo: { bankName: "Old Bank", accountNumber: "12345678", accountHolder: "Planner" },
     user: { id: "user-1", name: "Planner", email: "planner@example.com" },
   },
+  {
+    id: "participant-2",
+    tripId: trip.id,
+    userId: "user-2",
+    role: "participant",
+    bankInfo: { bankName: "Member Bank", accountNumber: "••••4321", accountHolder: "Member" },
+    user: { id: "user-2", name: "Member", email: "member@example.com" },
+  },
 ]
 
 function Wrapper({ children }: { children: ReactNode }) {
@@ -85,5 +93,14 @@ describe("SettingsPanel", () => {
       allowSettlementBeforeEnd: true,
       version: 1,
     })
+  })
+
+  it("never seeds an editable account field with a masked account number", () => {
+    render(<SettingsPanel />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole("button", { name: "Edit bank details for Member" }))
+
+    const accountNumber = screen.getByLabelText("Account number") as HTMLInputElement
+    expect(accountNumber.value).toBe("")
+    expect(accountNumber.placeholder).toBe("Enter a new account number to replace the masked value")
   })
 })
