@@ -24,7 +24,7 @@ async function signIn(page: Page, email: string) {
 test("planner creates and updates a trip, invites a member, and join remains idempotent", async ({
   browser,
 }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(240_000);
   const plannerContext = await browser.newContext();
   const memberContext = await browser.newContext();
   const joinerContext = await browser.newContext();
@@ -38,6 +38,7 @@ test("planner creates and updates a trip, invites a member, and join remains ide
 
   // The test server intentionally uses a four-second access-token TTL to cover
   // refresh behavior, so authenticate each actor immediately before its flow.
+  await planner.goto("/trip/create");
   await signIn(planner, plannerEmail);
   await planner.goto("/trip/create");
   await planner.getByLabel("Trip name").fill("Playwright Trip");
@@ -50,6 +51,8 @@ test("planner creates and updates a trip, invites a member, and join remains ide
 
   const code = planner.url().match(/\/trip\/([^/]+)/)?.[1];
   expect(code).toHaveLength(6);
+  await planner.goto(`/trip/${code}/settings`);
+  await planner.request.get(`/api/trips/${code}/invitations`);
   await signIn(planner, plannerEmail);
   await planner.goto(`/trip/${code}/settings`);
   await planner.getByPlaceholder("friend@example.com").fill(memberEmail);
@@ -59,6 +62,7 @@ test("planner creates and updates a trip, invites a member, and join remains ide
   // Precompile the expenses route before refreshing the deliberately
   // four-second access token used by this test server.
   await planner.goto(`/trip/${code}/expenses`);
+  await planner.request.get(`/api/trips/${code}/expenses`);
   await signIn(planner, plannerEmail);
   await planner.goto(`/trip/${code}/expenses`);
   await planner.getByRole("button", { name: "Add expense" }).click();

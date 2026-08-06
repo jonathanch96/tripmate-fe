@@ -18,13 +18,24 @@ export const expenseCreateSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    const total = new Decimal(value.amount)
-    const payerTotal = value.payers.reduce((sum, payer) => sum.plus(payer.amount), new Decimal(0))
+    let total: Decimal
+    let payerTotal: Decimal
+    try {
+      total = new Decimal(value.amount)
+      payerTotal = value.payers.reduce((sum, payer) => sum.plus(payer.amount), new Decimal(0))
+    } catch {
+      return
+    }
     if (!payerTotal.equals(total)) context.addIssue({ code: "custom", path: ["payers"], message: "Payers must sum to the expense amount" })
     if (new Set(value.payers.map((payer) => payer.userId)).size !== value.payers.length) context.addIssue({ code: "custom", path: ["payers"], message: "Each payer can appear only once" })
     if (value.splitType === "equal" && !value.participants?.length) context.addIssue({ code: "custom", path: ["participants"], message: "Choose at least one participant" })
     if (value.splitType === "manual") {
-      const splitTotal = (value.splits ?? []).reduce((sum, split) => sum.plus(split.amount), new Decimal(0))
+      let splitTotal: Decimal
+      try {
+        splitTotal = (value.splits ?? []).reduce((sum, split) => sum.plus(split.amount), new Decimal(0))
+      } catch {
+        return
+      }
       if (!value.splits?.length || !splitTotal.equals(total)) context.addIssue({ code: "custom", path: ["splits"], message: "Splits must sum to the expense amount" })
     }
   })
