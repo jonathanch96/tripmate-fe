@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { SettingsPanel } from "@/features/trip/settings-panel"
 import { TripProvider } from "@/features/trip/trip-context"
@@ -9,6 +9,9 @@ import type { Participant, Trip } from "@/features/trip/types"
 
 const apiFetch = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/api-client", () => ({ apiFetch }))
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { id: "user-1" } } }),
+}))
 
 const trip: Trip = {
   id: "trip-1",
@@ -53,6 +56,8 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 describe("SettingsPanel", () => {
+  afterEach(cleanup)
+
   beforeEach(() => {
     apiFetch.mockReset()
     apiFetch.mockResolvedValue({ success: true, data: trip })

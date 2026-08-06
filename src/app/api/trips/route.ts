@@ -1,1 +1,12 @@
-import type {NextRequest}from"next/server";import{authenticatedProxy}from"@/lib/server/authenticated-proxy";export function GET(r:NextRequest){return authenticatedProxy(r,`/trips${r.nextUrl.search}`)};export function POST(r:NextRequest){return authenticatedProxy(r,"/trips")}
+import type { NextRequest } from "next/server"
+
+import { tripSchema } from "@/features/trip/schema"
+import { authenticatedProxy } from "@/lib/server/authenticated-proxy"
+
+export function GET(request: NextRequest) {
+  return authenticatedProxy(request, `/trips${request.nextUrl.search}`)
+}
+
+export function POST(request: NextRequest) {
+  return authenticatedProxy(request, "/trips", tripSchema)
+}
