@@ -16,7 +16,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: managedServers ? [
     {
-      command: "docker compose up -d --wait postgres && PATH=/usr/local/go/bin:$PATH make migrate-up && docker compose exec -T postgres psql -U tripmate -d tripmate -c \"DELETE FROM tripmate.trips WHERE planner_id IN (SELECT id FROM tripmate.users WHERE email IN ('playwright-session@example.invalid','playwright-planner@example.invalid','playwright-member@example.invalid','playwright-joiner@example.invalid')); DELETE FROM tripmate.users WHERE email IN ('playwright-session@example.invalid','playwright-planner@example.invalid','playwright-member@example.invalid','playwright-joiner@example.invalid');\" && APP_PORT=18081 JWT_ACCESS_TTL=4s PATH=/usr/local/go/bin:$PATH go run ./adapters/rest",
+      command: "POSTGRES_HOST_PORT=55432 docker compose up -d --wait postgres && PATH=/usr/local/go/bin:$PATH make migrate-up && docker compose exec -T postgres psql -U tripmate -d tripmate -c \"DELETE FROM tripmate.trips WHERE planner_id IN (SELECT id FROM tripmate.users WHERE email IN ('playwright-session@example.invalid','playwright-planner@example.invalid','playwright-member@example.invalid','playwright-joiner@example.invalid')); DELETE FROM tripmate.users WHERE email IN ('playwright-session@example.invalid','playwright-planner@example.invalid','playwright-member@example.invalid','playwright-joiner@example.invalid');\" && APP_PORT=18081 JWT_ACCESS_TTL=4s PATH=/usr/local/go/bin:$PATH go run ./adapters/rest",
       cwd: backendDirectory,
       url: `${backendURL}/readyz`,
       timeout: 120_000,

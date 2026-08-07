@@ -39,6 +39,7 @@ test("planner creates and updates a trip, invites a member, and join remains ide
   // The test server intentionally uses a four-second access-token TTL to cover
   // refresh behavior, so authenticate each actor immediately before its flow.
   await planner.goto("/trip/create");
+  await planner.request.post("/api/trips", { data: {} });
   await signIn(planner, plannerEmail);
   await planner.goto("/trip/create");
   await planner.getByLabel("Trip name").fill("Playwright Trip");
@@ -66,14 +67,15 @@ test("planner creates and updates a trip, invites a member, and join remains ide
   await signIn(planner, plannerEmail);
   await planner.goto(`/trip/${code}/expenses`);
   await planner.getByRole("button", { name: "Add expense" }).click();
-  await planner.getByLabel("Description").fill("Multi-payer dinner");
-  await planner.getByLabel("Date").fill("2026-08-25");
-  await planner.getByLabel("Amount").fill("12000.00");
-  await planner.getByLabel("Payer 1 amount").fill("8000.00");
-  await planner.getByRole("button", { name: "Add payer" }).click();
-  await planner.getByLabel("Payer 2").selectOption({ label: "Member" });
-  await planner.getByLabel("Payer 2 amount").fill("4000.00");
-  await planner.getByRole("button", { name: "Save expense" }).click();
+  const expenseDialog = planner.getByRole("dialog");
+  await expenseDialog.getByLabel("Description").fill("Multi-payer dinner");
+  await expenseDialog.getByLabel("Date", { exact: true }).fill("2026-08-25");
+  await expenseDialog.getByLabel("Amount", { exact: true }).fill("12000.00");
+  await expenseDialog.getByLabel("Payer 1 amount").fill("8000.00");
+  await expenseDialog.getByRole("button", { name: "Add payer" }).click();
+  await expenseDialog.getByLabel("Payer 2", { exact: true }).selectOption({ label: "Member" });
+  await expenseDialog.getByLabel("Payer 2 amount").fill("4000.00");
+  await expenseDialog.getByRole("button", { name: "Save expense" }).click();
   const dinner = planner.getByRole("row").filter({ hasText: "Multi-payer dinner" });
   await expect(dinner).toHaveCount(1);
   await expect(dinner).toContainText("Planner");
@@ -82,10 +84,12 @@ test("planner creates and updates a trip, invites a member, and join remains ide
   // Precompile the overview before authenticating against the deliberately
   // short-lived test access token.
   await member.goto(`/trip/${code}`);
+  await member.request.patch(`/api/trips/${code}`, { data: {} });
   await signIn(member, memberEmail);
   await member.goto(`/trip/${code}`);
   await expect(member.getByRole("heading", { name: "Playwright Trip" })).toBeVisible();
   await signIn(member, memberEmail);
+  await member.request.get("/api/auth/session");
   const denied = await member.request.patch(`/api/trips/${code}`, {
     data: {
       name: "Denied",
@@ -101,11 +105,13 @@ test("planner creates and updates a trip, invites a member, and join remains ide
   expect(denied.status()).toBe(403);
 
   await joiner.goto(`/trip/${code}`);
+  await joiner.request.post(`/api/trips/${code}/join`);
   await signIn(joiner, joinerEmail);
   await joiner.goto(`/trip/${code}`);
   await joiner.getByRole("button", { name: "Join trip" }).click();
   await expect(joiner.getByRole("heading", { name: "Playwright Trip" })).toBeVisible();
   await signIn(joiner, joinerEmail);
+  await joiner.request.get("/api/auth/session");
   const duplicate = await joiner.request.post(`/api/trips/${code}/join`);
   expect(duplicate.status()).toBe(409);
 
