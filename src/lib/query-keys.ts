@@ -8,4 +8,6 @@ export const qk = {
   expenses: (tripCode: string) => [...qk.trip(tripCode), "expenses"] as const,
   balances: (tripCode: string) => [...qk.trip(tripCode), "balances"] as const,
   finalSettlement: (tripCode: string) => [...qk.trip(tripCode), "final-settlement"] as const,
+  settlements: (tripCode: string) => [...qk.trip(tripCode), "settlements"] as const,
+  rates: (tripCode: string) => [...qk.trip(tripCode), "rates"] as const,
 }
