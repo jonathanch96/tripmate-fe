@@ -1,7 +1,18 @@
+import Decimal from "decimal.js"
 import { z } from "zod"
 
 const currency = z.string().trim().length(3).transform((value) => value.toUpperCase())
-const positiveDecimal = z.string().trim().regex(/^\d+(?:\.\d+)?$/).refine((value) => Number(value) > 0, "Must be greater than zero")
+const positiveDecimal = z
+  .string()
+  .trim()
+  .regex(/^\d+(?:\.\d+)?$/)
+  .refine((value) => {
+    try {
+      return new Decimal(value).greaterThan(0)
+    } catch {
+      return false
+    }
+  }, "Must be greater than zero")
 
 export const settlementCreateSchema = z.object({
   fromUserId: z.uuid(), toUserId: z.uuid(), amount: positiveDecimal, currency,
