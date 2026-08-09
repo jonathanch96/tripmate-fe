@@ -19,7 +19,7 @@ type RegistrationResponse = {
 }
 
 export function registrationDestination(result: RegistrationResponse) {
-  return result.data?.pendingInvitations?.length ? "/trips" : "/"
+  return result.data?.pendingInvitations?.length ? "/trips?invitations=pending" : "/trips"
 }
 
 export function RegisterForm() {
@@ -52,7 +52,9 @@ export function RegisterForm() {
 
   return (
     <Form {...form}>
-      <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
+      {/* See login-form: without method="post" a pre-hydration submit leaks the password
+          through the query string. */}
+      <form className="space-y-4" method="post" onSubmit={form.handleSubmit(submit)}>
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem><FormLabel>Name</FormLabel><FormControl><Input autoComplete="name" {...field} /></FormControl><FormMessage /></FormItem>
         )} />

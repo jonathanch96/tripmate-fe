@@ -3,9 +3,11 @@ import Link from "next/link"
 import { AuthShell } from "@/features/auth/auth-shell"
 import { LoginForm } from "@/features/auth/login-form"
 
+// Signing in lands on the trip list, not the marketing page — `next` only redirects
+// somewhere else when the proxy bounced an authenticated route to /login.
 function safeNext(value: string | string[] | undefined) {
   const path = Array.isArray(value) ? value[0] : value
-  return path?.startsWith("/") && !path.startsWith("//") ? path : "/"
+  return path?.startsWith("/") && !path.startsWith("//") ? path : "/trips"
 }
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {

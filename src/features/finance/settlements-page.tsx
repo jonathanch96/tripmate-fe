@@ -52,7 +52,7 @@ export function SettlementsPage() {
     <Dialog open={recordOpen} onOpenChange={(open) => { setRecordOpen(open); if (!open) setFormError("") }}>
       <DialogTrigger render={<Button />}>Record a settlement</DialogTrigger>
       <DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Record a settlement</DialogTitle><DialogDescription>Log a payment between two participants. The planner approves it if this trip requires approval.</DialogDescription></DialogHeader>
-        <form className="grid gap-3 sm:grid-cols-2" onSubmit={submit}>
+        <form className="grid gap-3 sm:grid-cols-2" method="post" onSubmit={submit}>
           <label className="space-y-1 text-sm">From<NativeSelect className="w-full" value={draft.fromUserId} onChange={(e) => setDraft({ ...draft, fromUserId: e.target.value })}>{participants.map((p) => <option key={p.userId} value={p.userId}>{names.get(p.userId)}</option>)}</NativeSelect></label>
           <label className="space-y-1 text-sm">To<NativeSelect className="w-full" value={draft.toUserId} onChange={(e) => setDraft({ ...draft, toUserId: e.target.value })}>{participants.map((p) => <option key={p.userId} value={p.userId}>{names.get(p.userId)}</option>)}</NativeSelect></label>
           <label className="space-y-1 text-sm">Amount<Input required inputMode="decimal" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} /></label>
@@ -80,7 +80,7 @@ export function SettlementsPage() {
     </Table> : <p className="text-muted-foreground">No settlements recorded.</p>}</CardContent></Card>
     <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectError("") } }}>
       <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Reject this settlement</DialogTitle><DialogDescription>{rejecting ? `${names.get(rejecting.fromUserId)} → ${names.get(rejecting.toUserId)} · ${rejecting.currency} ${rejecting.amount}` : ""}</DialogDescription></DialogHeader>
-        <form className="space-y-3" onSubmit={submitRejection}>
+        <form className="space-y-3" method="post" onSubmit={submitRejection}>
           <label className="space-y-1 text-sm">Reason<Textarea required value={reason} onChange={(e) => { setReason(e.target.value); setRejectError("") }} placeholder="Tell the payer why this was rejected" /></label>
           {rejectError ? <p role="alert" className="text-sm text-destructive">{rejectError}</p> : null}
           <DialogFooter><Button type="button" variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button type="submit" variant="destructive" disabled={action.isPending}>{action.isPending ? "Rejecting…" : "Reject settlement"}</Button></DialogFooter>

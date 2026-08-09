@@ -26,6 +26,19 @@ describe("frontend architecture guards", () => {
     expect(publicLeaks).toEqual([])
   })
 
+  // A <form> defaults to method="get", so a submit landing before React hydrates navigates with
+  // every named input in the query string — that is how a password reached the address bar.
+  it("never leaves a form on the default GET method", () => {
+    const sourceFiles = filesUnder(path.resolve("src")).filter((file) => file.endsWith(".tsx") && !file.includes(".test."))
+    const violations = sourceFiles.flatMap((file) => {
+      const openingTags = fs.readFileSync(file, "utf8").match(/<form\b[^>]*>/g) ?? []
+      return openingTags
+        .filter((tag) => !/\bmethod=(?:"post"|{"post"})/.test(tag))
+        .map(() => path.relative(process.cwd(), file))
+    })
+    expect(violations).toEqual([])
+  })
+
   it("declares BFF resource routes explicitly", () => {
     const routeFiles = filesUnder(path.resolve("src/app/api"))
       .filter((file) => file.endsWith("route.ts"))

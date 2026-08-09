@@ -49,7 +49,7 @@ export function CreateTripForm() {
   ] as const;
 
   return (
-    <form className="max-w-xl space-y-4" onSubmit={form.handleSubmit(submit)}>
+    <form className="max-w-xl space-y-4" method="post" onSubmit={form.handleSubmit(submit)}>
       <label className="block">
         Trip name
         <Input {...form.register("name")} />

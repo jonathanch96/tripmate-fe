@@ -21,6 +21,16 @@ const parsePair = (pair: string, fallbackTo: string): RateDraft => {
   return { from: from.toUpperCase(), to: (to || fallbackTo).toUpperCase(), rate: "" }
 }
 
+const normalizeCode = (code: string) => code.trim().toUpperCase()
+
+// A currency pair is stored in one direction only — the backend retires the opposite row when a
+// rate is saved. This finds the row that a draft is about to replace, so the planner is told first.
+export function opposingRate(rates: Rate[] | undefined, draft: Pick<RateDraft, "from" | "to">) {
+  const from = normalizeCode(draft.from), to = normalizeCode(draft.to)
+  if (!from || !to || from === to) return undefined
+  return rates?.find((rate) => normalizeCode(rate.from) === to && normalizeCode(rate.to) === from)
+}
+
 export function FinalPage() {
   const { trip, participants } = useTrip(), search = useSearchParams(), client = useQueryClient(), router = useRouter()
   const requested = useMemo(() => (search.get("pairs") ?? "").split(",").filter(Boolean), [search])
@@ -40,12 +50,15 @@ export function FinalPage() {
   return <section className="space-y-6"><div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">Final settlement</h2><p className="text-sm text-muted-foreground">Lock rates and finish with the smallest practical transfer plan.</p></div>{trip.isFinalized ? <Badge>Finalized</Badge> : null}</div>
     <Card id="rates"><CardHeader><CardTitle>Exchange rates</CardTitle></CardHeader><CardContent className="space-y-3">{rates.data?.map((rate) => <div key={rate.id} className="flex justify-between"><span>{rate.from} → {rate.to}</span><span>{rate.rate} {rate.isFinal ? <Badge variant="outline">locked</Badge> : null}</span></div>)}
       {stillMissing.map((pair) => <p key={pair} className="text-sm text-amber-700">Missing: {pair}</p>)}
-      {trip.canEditSettings && !trip.isFinalized ? <div className="space-y-2">{drafts.map((draft, index) => <form key={index} className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); setRate.mutate(draft) }}>
+      {trip.canEditSettings && !trip.isFinalized ? <div className="space-y-2">{drafts.map((draft, index) => <div key={index} className="space-y-1"><form className="grid gap-2 sm:grid-cols-4" method="post" onSubmit={(e) => { e.preventDefault(); setRate.mutate(draft) }}>
         <Input aria-label={`From currency ${index + 1}`} maxLength={3} value={draft.from} onChange={(e) => update(index, { from: e.target.value.toUpperCase() })} />
         <Input aria-label={`To currency ${index + 1}`} maxLength={3} value={draft.to} onChange={(e) => update(index, { to: e.target.value.toUpperCase() })} />
         <Input aria-label={`Rate ${index + 1}`} required inputMode="decimal" placeholder="Rate" value={draft.rate} onChange={(e) => update(index, { rate: e.target.value })} />
         <Button disabled={setRate.isPending} type="submit">Set &amp; lock rate</Button>
-      </form>)}
+      </form>
+        {/* A pair holds one direction only; the server drops the opposite row on save. */}
+        {opposingRate(rates.data, draft) ? <p className="text-sm text-muted-foreground">Saving this replaces the stored {draft.to} → {draft.from} rate — a pair is held in one direction only.</p> : null}
+      </div>)}
         <Button size="sm" variant="outline" type="button" onClick={() => setDrafts([...drafts, { from: "", to: trip.baseCurrency, rate: "" }])}>Add another pair</Button>
       </div> : null}
     </CardContent></Card>

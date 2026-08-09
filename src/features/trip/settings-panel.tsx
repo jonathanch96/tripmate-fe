@@ -83,7 +83,7 @@ function BankEditor({
   })
 
   return (
-    <form className="mt-3 grid gap-2 rounded-lg border p-3 md:grid-cols-4" onSubmit={form.handleSubmit((value) => mutation.mutate(value))}>
+    <form className="mt-3 grid gap-2 rounded-lg border p-3 md:grid-cols-4" method="post" onSubmit={form.handleSubmit((value) => mutation.mutate(value))}>
       <Input aria-label="Bank name" placeholder="Bank name" {...form.register("bankName")} />
       <Input
         aria-label="Account number"

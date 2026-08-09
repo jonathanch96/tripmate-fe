@@ -1,56 +1,99 @@
 import Link from "next/link"
-import { ArrowRight, Calculator, Globe2, ReceiptText, Users } from "lucide-react"
+import { ArrowRight, Calculator, Globe, Receipt, Users } from "lucide-react"
 
 import { SiteHeader } from "@/components/layout/site-header"
 import { buttonVariants } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 const features = [
-  { icon: Users, title: "Split together", copy: "Share each cost across the people who were actually involved." },
-  { icon: Globe2, title: "Travel in any currency", copy: "Keep the original amount while TripMate settles in one base currency." },
-  { icon: Calculator, title: "Settle with fewer transfers", copy: "Turn a web of IOUs into a clear, deterministic payment plan." },
-  { icon: ReceiptText, title: "Keep an audit trail", copy: "Every expense, split, approval, and settlement stays explainable." },
+  {
+    icon: Users,
+    className: "text-blue-500",
+    title: "Split with friends",
+    description: "Share each cost across the people who were actually involved, with any number of payers.",
+  },
+  {
+    icon: Globe,
+    className: "text-green-500",
+    title: "Multi-currency",
+    description: "Keep the original amount while TripMate settles everything in one base currency.",
+  },
+  {
+    icon: Calculator,
+    className: "text-purple-500",
+    title: "Smart settlement",
+    description: "Turn a web of IOUs into the smallest practical set of transfers.",
+  },
+  {
+    icon: Receipt,
+    className: "text-orange-500",
+    title: "Track everything",
+    description: "Every expense, split, approval, and settlement stays explainable.",
+  },
 ]
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 via-background to-background dark:from-sky-950/30">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
       <SiteHeader />
-      <main>
-        <section className="mx-auto grid max-w-6xl gap-12 px-4 py-20 lg:grid-cols-[1.2fr_.8fr] lg:py-28">
-          <div className="space-y-7">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Travel together. Settle clearly.</p>
-            <h1 className="max-w-3xl text-5xl font-bold tracking-tight sm:text-6xl">
-              Shared trip expenses without the end-of-trip spreadsheet.
-            </h1>
-            <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
-              TripMate records who paid, who shared, and what everyone owes—even when the trip spans multiple currencies.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/register" className={buttonVariants({ size: "lg" })}>Create your first trip <ArrowRight className="size-4" /></Link>
-              <Link href="/login" className={buttonVariants({ size: "lg", variant: "outline" })}>Sign in</Link>
-            </div>
+
+      <section className="container mx-auto px-4 py-16 md:py-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
+            Split Trip Expenses <span className="text-blue-600">Without the Hassle</span>
+          </h1>
+          <p className="mb-8 text-xl text-muted-foreground">
+            TripMate records who paid, who shared, and what everyone owes—even when the trip spans
+            multiple currencies.
+          </p>
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
+            <Link href="/register" className={buttonVariants({ size: "lg" })}>
+              Get started <ArrowRight className="ml-2 size-5" />
+            </Link>
+            <Link href="/login" className={buttonVariants({ size: "lg", variant: "outline" })}>
+              Sign in
+            </Link>
           </div>
-          <Card className="border-primary/15 bg-card/80 shadow-xl">
-            <CardHeader><CardTitle>A clean path from purchase to settlement</CardTitle></CardHeader>
-            <CardContent className="space-y-5 text-sm text-muted-foreground">
-              <p><strong className="text-foreground">1. Record</strong> expenses with multiple payers and fair splits.</p>
-              <p><strong className="text-foreground">2. Review</strong> balances converted with explicit rates.</p>
-              <p><strong className="text-foreground">3. Settle</strong> through the smallest practical set of transfers.</p>
-            </CardContent>
-          </Card>
-        </section>
-        <section className="mx-auto max-w-6xl px-4 pb-24">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {features.map(({ icon: Icon, title, copy }) => (
-              <Card key={title} className="bg-card/70">
-                <CardHeader><Icon className="size-8 text-primary" aria-hidden="true" /><CardTitle className="text-lg">{title}</CardTitle></CardHeader>
-                <CardContent className="text-sm leading-6 text-muted-foreground">{copy}</CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      </main>
+        </div>
+      </section>
+
+      <section className="container mx-auto px-4 py-16">
+        <h2 className="mb-12 text-center text-3xl font-bold">How it works</h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {features.map(({ icon: Icon, className, title, description }) => (
+            <Card key={title} className="border-0 shadow-lg transition-shadow hover:shadow-xl">
+              <CardHeader>
+                <Icon className={`mb-4 size-10 ${className}`} aria-hidden="true" />
+                <CardTitle className="text-xl">{title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-base">{description}</CardDescription>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="container mx-auto px-4 pb-16">
+        <Card className="mx-auto max-w-2xl border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40">
+          <CardHeader>
+            <CardTitle className="text-blue-900 dark:text-blue-100">
+              A clean path from purchase to settlement
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-blue-900/80 dark:text-blue-100/80">
+            <p><strong>1. Record</strong> expenses with multiple payers and fair splits.</p>
+            <p><strong>2. Review</strong> balances converted with explicit rates.</p>
+            <p><strong>3. Settle</strong> through the smallest practical set of transfers.</p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <footer className="border-t bg-muted/40 py-8">
+        <div className="container mx-auto px-4 text-center text-muted-foreground">
+          <p>&copy; {new Date().getFullYear()} TripMate. Shared-trip expenses without the spreadsheet.</p>
+        </div>
+      </footer>
     </div>
   )
 }

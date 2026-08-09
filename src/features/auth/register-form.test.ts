@@ -8,10 +8,10 @@ describe("registrationDestination", () => {
       success: true,
       code: "USER_REGISTERED",
       data: { pendingInvitations: [{ token: "still-pending" }] },
-    })).toBe("/trips")
+    })).toBe("/trips?invitations=pending")
   })
 
-  it("preserves the normal landing page when there are no invitations", () => {
-    expect(registrationDestination({ success: true, code: "USER_REGISTERED", data: { pendingInvitations: [] } })).toBe("/")
+  it("lands on the trip list rather than the marketing page when there are no invitations", () => {
+    expect(registrationDestination({ success: true, code: "USER_REGISTERED", data: { pendingInvitations: [] } })).toBe("/trips")
   })
 })

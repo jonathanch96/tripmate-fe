@@ -35,7 +35,10 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
 
   return (
     <Form {...form}>
-      <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
+      {/* method="post" is the safety net, not the transport: submitting stays client-side once
+          hydrated, but a submit that beats hydration would otherwise default to GET and write
+          the email and password into the URL, browser history, and any access log. */}
+      <form className="space-y-4" method="post" onSubmit={form.handleSubmit(submit)}>
         <FormField control={form.control} name="email" render={({ field }) => (
           <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" autoComplete="email" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
