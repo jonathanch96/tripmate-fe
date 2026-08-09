@@ -7,13 +7,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "gen:types": "openapi-typescript ../jblabs-tripmate-be/docs/swagger.json -o src/types/api.d.ts",
+    "check:types-generated": "pnpm gen:types && git diff --exit-code -- src/types/api.d.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude src/test/bundle-architecture.test.ts",
     "test:bundle": "pnpm build && vitest run src/test/bundle-architecture.test.ts",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:bundle"
+    "verify": "pnpm gen:types && pnpm lint && pnpm typecheck && pnpm test && pnpm test:bundle"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -55,6 +57,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "jsdom": "^30.0.1",
+    "openapi-typescript": "5.4.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"

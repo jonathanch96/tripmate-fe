@@ -6,6 +6,7 @@ export const qk = {
   invitations: (tripCode: string) => [...qk.trip(tripCode), "invitations"] as const,
   myInvitations: () => [...qk.all, "invitations", "me"] as const,
   expenses: (tripCode: string) => [...qk.trip(tripCode), "expenses"] as const,
+  receipts: (tripCode: string) => [...qk.trip(tripCode), "receipts"] as const,
   balances: (tripCode: string) => [...qk.trip(tripCode), "balances"] as const,
   finalSettlement: (tripCode: string) => [...qk.trip(tripCode), "final-settlement"] as const,
   settlements: (tripCode: string) => [...qk.trip(tripCode), "settlements"] as const,

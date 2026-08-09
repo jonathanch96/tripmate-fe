@@ -27,7 +27,7 @@ export async function backendFetch<T>(path: string, init: BackendInit = {}): Pro
   }
   const headers = new Headers(init.headers)
   headers.set("X-Request-ID", init.requestId ?? crypto.randomUUID())
-  if (init.body !== undefined) {
+  if (init.body !== undefined && !headers.has("Content-Type") && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json")
   }
   if (init.accessToken) {
@@ -41,4 +41,3 @@ export async function backendFetch<T>(path: string, init: BackendInit = {}): Pro
   const envelope = (await response.json()) as Envelope<T>
   return { envelope, status: response.status }
 }
-

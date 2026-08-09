@@ -32,7 +32,7 @@ const eslintConfig = defineConfig([
   {
     // Every surface that handles money values, not just expenses: finance covers balances,
     // settlements and the final plan, which are the same decimal strings from the same API.
-    files: ["src/features/expense/**/*.{ts,tsx}", "src/features/finance/**/*.{ts,tsx}"],
+    files: ["src/features/expense/**/*.{ts,tsx}", "src/features/finance/**/*.{ts,tsx}", "src/features/receipt/**/*.{ts,tsx}"],
     plugins: { "tripmate-money": moneySafetyPlugin },
     rules: {
       "no-restricted-globals": ["error", { name: "parseFloat", message: "Use decimal.js for money amounts." }],
@@ -50,6 +50,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "src/types/api.d.ts",
   ]),
 ]);
 

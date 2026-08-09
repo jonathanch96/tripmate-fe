@@ -1,0 +1,17 @@
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import type { ReceiptItem } from "@/features/receipt/types"
+import type { Participant } from "@/features/trip/types"
+
+const name = (participant: Participant) => participant.user?.name ?? participant.user?.email ?? "Participant"
+export function ItemAssignmentGrid({ items, participants, pending, onChange }: { items: ReceiptItem[]; participants: Participant[]; pending: boolean; onChange: (items: ReceiptItem[]) => void }) {
+  function replace(itemId: string, userIds: string[]) { onChange(items.map((item) => item.id === itemId ? { ...item, assigneeIds: userIds } : item)) }
+  function toggle(item: ReceiptItem, userId: string) { replace(item.id, item.assigneeIds.includes(userId) ? item.assigneeIds.filter((id) => id !== userId) : [...item.assigneeIds, userId]) }
+  const everyone = participants.map((participant) => participant.userId)
+  return <section className="space-y-2"><div className="flex items-end justify-between"><div><h3 className="font-medium">Who had what?</h3><p className="text-xs text-muted-foreground">Shared dishes can be checked for several people.</p></div><Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => onChange(items.map((item) => ({ ...item, assigneeIds: everyone })))}>Everyone gets everything</Button></div>
+    <div className="hidden overflow-x-auto rounded-md border sm:block"><table className="w-full min-w-max text-sm"><thead><tr className="bg-muted/50"><th className="p-2 text-left">Item</th>{participants.map((participant) => <th className="max-w-24 p-2 text-center" key={participant.userId}>{name(participant)}</th>)}<th className="p-2">Shortcut</th></tr></thead><tbody>{items.map((item) => <tr key={item.id} className={`border-t ${item.assigneeIds.length === 0 ? "bg-destructive/5" : ""}`}><td className={item.assigneeIds.length === 0 ? "p-2 font-medium text-destructive" : "p-2 font-medium"}>{item.name}</td>{participants.map((participant) => <td className="p-2" key={participant.userId}><Checkbox className="mx-auto" checked={item.assigneeIds.includes(participant.userId)} disabled={pending} aria-label={`Assign ${item.name} to ${name(participant)}`} onCheckedChange={() => toggle(item, participant.userId)} /></td>)}<td className="p-2"><Button type="button" size="sm" variant="ghost" onClick={() => replace(item.id, everyone)} disabled={pending}>Everyone</Button></td></tr>)}</tbody></table></div>
+    <div className="space-y-2 sm:hidden">{items.map((item) => <div key={item.id} className={`rounded-md border p-3 ${item.assigneeIds.length === 0 ? "border-destructive/50 bg-destructive/5" : ""}`}><div className="mb-2 flex items-center justify-between"><span className="font-medium">{item.name}</span><Button type="button" size="sm" variant="ghost" onClick={() => replace(item.id, everyone)}>Everyone</Button></div><div className="flex flex-wrap gap-2">{participants.map((participant) => <label className="flex items-center gap-1 rounded-full border px-2 py-1" key={participant.userId}><Checkbox checked={item.assigneeIds.includes(participant.userId)} onCheckedChange={() => toggle(item, participant.userId)} />{name(participant)}</label>)}</div></div>)}</div>
+  </section>
+}
