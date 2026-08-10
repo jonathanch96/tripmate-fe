@@ -138,18 +138,18 @@ const MENU_ITEMS: Array<{ id: Section; label: string; description: string; icon:
 
 function SectionHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon-sm" aria-label="Back to settings" onClick={onBack}>
-        <ArrowLeft className="size-4" aria-hidden="true" />
-      </Button>
-      <h3 className="font-heading text-lg font-semibold">{title}</h3>
+    <div>
+      <button type="button" className="mb-5 inline-flex items-center gap-1 text-[13px] font-semibold text-primary" onClick={onBack}>
+        <ArrowLeft className="size-3.5" aria-hidden="true" /> Settings
+      </button>
+      <h1 className="font-heading text-[22px] font-extrabold">{title}</h1>
     </div>
   )
 }
 
 function SettingsMenu({ onSelect }: { onSelect: (section: Section) => void }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="flex max-w-[520px] flex-col gap-2.5">
       {MENU_ITEMS.map((item) => {
         const Icon = item.icon
         return (
@@ -157,15 +157,10 @@ function SettingsMenu({ onSelect }: { onSelect: (section: Section) => void }) {
             key={item.id}
             type="button"
             onClick={() => onSelect(item.id)}
-            className="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/30"
+            className="flex items-center justify-between rounded-[14px] border bg-white px-5 py-[18px] text-left transition-shadow hover:shadow-[0_6px_18px_oklch(0.2_0.02_60/0.07)]"
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-              <Icon className="size-4.5" aria-hidden="true" />
-            </span>
-            <span>
-              <span className="block font-medium">{item.label}</span>
-              <span className="block text-sm text-muted-foreground">{item.description}</span>
-            </span>
+            <span className="flex min-w-0 items-center gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground"><Icon className="size-4.5" aria-hidden="true" /></span><span><span className="block text-sm font-extrabold">{item.label}</span><span className="mt-1 block text-[13px] text-muted-foreground">{item.description}</span></span></span>
+            <span className="ml-3 text-lg text-muted-foreground">›</span>
           </button>
         )
       })}
@@ -516,14 +511,15 @@ export function SettingsPanel() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      {section === "menu" ? <h1 className="font-heading text-[26px] font-extrabold">Settings</h1> : null}
+      {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
+      {section === "menu" ? <Card className="max-w-[520px] rounded-[14px]">
         <CardHeader><CardTitle>Share trip</CardTitle></CardHeader>
         <CardContent className="flex gap-2">
           <Input readOnly value={trip.code} />
           <Button onClick={() => navigator.clipboard.writeText(`${location.origin}/trip/${trip.code}`)}>Copy link</Button>
         </CardContent>
-      </Card>
-      {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
+      </Card> : null}
       {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} disabled={settingsMutation.isPending} onBack={() => setSection("menu")} /> : null}
       {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} onBack={() => setSection("menu")} /> : null}
       {section === "roles" ? <RolesSection onBack={() => setSection("menu")} /> : null}

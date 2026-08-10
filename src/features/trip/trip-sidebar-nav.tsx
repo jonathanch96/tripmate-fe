@@ -21,7 +21,7 @@ import type { Participant, Trip } from "@/features/trip/types";
 const NAV_ITEMS = [
   { href: "", label: "Overview", icon: LayoutDashboard },
   { href: "/expenses", label: "Expenses", icon: Receipt },
-  { href: "/settlements", label: "Settlements", icon: HandCoins },
+  { href: "/settlements", label: "Settlement", icon: HandCoins },
   { href: "/final", label: "Final plan", icon: FileCheck2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
@@ -43,11 +43,14 @@ export function TripSidebarNav({
   const overflow = participants.length - visible.length;
 
   return (
-    <aside className="hidden md:flex md:w-56 md:shrink-0 md:flex-col md:gap-6">
-      <div>
-        <p className="truncate font-heading text-lg font-semibold">{trip.name}</p>
-        <p className="mt-1 inline-flex items-center rounded-full bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-          {tripCode}
+    <aside className="sticky top-0 hidden h-dvh w-[250px] shrink-0 flex-col border-r bg-white px-[18px] py-6 md:flex">
+      <Link href="/trips" className="mb-[22px] text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground">
+        ‹ My trips
+      </Link>
+      <div className="mb-[26px]">
+        <p className="truncate font-heading text-[19px] font-extrabold">{trip.name}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {tripCode} · {trip.baseCurrency}
         </p>
       </div>
       <nav aria-label="Trip navigation" className="flex flex-col gap-1">
@@ -60,10 +63,10 @@ export function TripSidebarNav({
               key={item.href}
               href={href}
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+                "flex items-center gap-2.5 rounded-[9px] px-3 py-2.5 text-sm font-semibold transition-colors",
                 active
-                  ? "bg-accent font-medium text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-foreground/80 hover:bg-muted hover:text-foreground"
               )}
             >
               <Icon className="size-4" aria-hidden="true" />
@@ -72,7 +75,7 @@ export function TripSidebarNav({
           );
         })}
       </nav>
-      <div className="mt-auto flex flex-col gap-3 border-t pt-4">
+      <div className="mt-auto flex flex-col gap-3">
         <AvatarGroup>
           {visible.map((participant) => {
             const name = participant.user?.name ?? participant.user?.email ?? "?";
@@ -89,7 +92,7 @@ export function TripSidebarNav({
         <Button
           variant="ghost"
           size="sm"
-          className="justify-start gap-2 text-muted-foreground"
+          className="h-auto justify-start gap-2 px-0 text-[13px] font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground"
           onClick={() => signOut({ callbackUrl: "/" })}
         >
           <LogOut className="size-4" aria-hidden="true" />
@@ -100,16 +103,21 @@ export function TripSidebarNav({
   );
 }
 
-export function TripMobileNav({ tripCode }: { tripCode: string }) {
+export function TripMobileNav({ tripCode, trip }: { tripCode: string; trip: Trip }) {
   const pathname = usePathname();
   const base = `/trip/${tripCode}`;
 
   return (
-    <nav
-      aria-label="Trip navigation"
-      className="mb-6 flex gap-1 overflow-x-auto border-b pb-2 md:hidden"
-    >
-      {NAV_ITEMS.map((item) => {
+    <div className="border-b bg-white px-5 py-4 md:hidden">
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <div>
+          <Link href="/trips" className="text-xs font-semibold text-muted-foreground">‹ My trips</Link>
+          <p className="mt-1 truncate font-heading font-extrabold">{trip.name}</p>
+        </div>
+        <span className="text-xs text-muted-foreground">{tripCode} · {trip.baseCurrency}</span>
+      </div>
+      <nav aria-label="Trip navigation" className="flex gap-1 overflow-x-auto">
+        {NAV_ITEMS.map((item) => {
         const href = `${base}${item.href}`;
         const active = item.href === "" ? pathname === base : pathname.startsWith(href);
         return (
@@ -117,14 +125,15 @@ export function TripMobileNav({ tripCode }: { tripCode: string }) {
             key={item.href}
             href={href}
             className={cn(
-              "shrink-0 rounded-md px-3 py-1.5 text-sm transition-colors",
-              active ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground"
+              "shrink-0 rounded-[9px] px-3 py-2 text-sm font-semibold transition-colors",
+              active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
             )}
           >
             {item.label}
           </Link>
         );
-      })}
-    </nav>
+        })}
+      </nav>
+    </div>
   );
 }

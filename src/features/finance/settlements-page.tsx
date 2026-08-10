@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState, type FormEvent } from "react"
+import { Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,9 +49,9 @@ export function SettlementsPage() {
   function prefill(debt: Transfer) { setDraft({ ...draft, fromUserId: debt.fromUserId, toUserId: debt.toUserId, amount: debt.amount, currency: debt.currency }); setFormError(""); setRecordOpen(true) }
   function submit(event: FormEvent) { event.preventDefault(); setFormError(""); create.mutate() }
   function submitRejection(event: FormEvent) { event.preventDefault(); if (!rejecting || !reason.trim()) { setRejectError("Give a reason so the payer knows what to fix."); return } action.mutate({ row: rejecting, action: "reject", body: { reason: reason.trim() } }) }
-  return <section className="space-y-6"><div className="flex items-center justify-between gap-3"><div><h2 className="font-heading text-xl font-semibold">Settlements</h2><p className="text-sm text-muted-foreground">Record transfers and track planner approval.</p></div>
+  return <section className="space-y-6"><div className="flex items-end justify-between gap-3"><div><h1 className="font-heading text-[26px] font-extrabold">Settlements</h1><p className="mt-1.5 text-sm text-muted-foreground">Record a payment between members to update balances.</p></div>
     <Dialog open={recordOpen} onOpenChange={(open) => { setRecordOpen(open); if (!open) setFormError("") }}>
-      <DialogTrigger render={<Button />}>Record a settlement</DialogTrigger>
+      <DialogTrigger render={<Button className="font-bold" />}><Plus />Record settlement</DialogTrigger>
       <DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Record a settlement</DialogTitle><DialogDescription>Log a payment between two participants. The planner approves it if this trip requires approval.</DialogDescription></DialogHeader>
         <form className="grid gap-3 sm:grid-cols-2" method="post" onSubmit={submit}>
           <label className="space-y-1 text-sm">From<NativeSelect className="w-full" value={draft.fromUserId} onChange={(e) => setDraft({ ...draft, fromUserId: e.target.value })}>{participants.map((p) => <option key={p.userId} value={p.userId}>{names.get(p.userId)}</option>)}</NativeSelect></label>

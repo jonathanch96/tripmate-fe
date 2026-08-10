@@ -1,17 +1,24 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
+import { Plus } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Invitation, Trip } from "@/features/trip/types"
+import type { BalanceResult } from "@/features/finance/types"
+import type { Invitation, Participant, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
+import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { qk } from "@/lib/query-keys"
+import { cn } from "@/lib/utils"
 
 export default function TripsPage() {
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
   const trips = useQuery({
     queryKey: qk.trips(),
     queryFn: async () => (await apiFetch<Trip[]>("/api/trips")).data ?? [],
@@ -20,6 +27,14 @@ export default function TripsPage() {
     queryKey: qk.myInvitations(),
     queryFn: async () => (await apiFetch<Invitation[]>("/api/invitations/me")).data ?? [],
   })
+  const participantQueries = useQueries({ queries: (trips.data ?? []).map((trip) => ({
+    queryKey: qk.participants(trip.code),
+    queryFn: async () => (await apiFetch<Participant[]>(`/api/trips/${trip.code}/participants`)).data ?? [],
+  })) })
+  const balanceQueries = useQueries({ queries: (trips.data ?? []).map((trip) => ({
+    queryKey: qk.balances(trip.code),
+    queryFn: async () => (await apiFetch<BalanceResult>(`/api/trips/${trip.code}/balances`)).data!,
+  })) })
   const accept = useMutation({
     mutationFn: (token: string) => apiFetch(`/api/invitations/${token}/accept`, { method: "POST" }),
     onSuccess: async () => {
@@ -34,9 +49,12 @@ export default function TripsPage() {
 
   return (
     <section>
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="font-heading text-3xl font-semibold">My trips</h1>
-        <Button render={<Link href="/trip/create" />}>Create trip</Button>
+      <div className="mb-7 flex items-end justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-[28px] font-extrabold">My trips</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Pick a trip to see expenses and balances.</p>
+        </div>
+        <Button className="h-10 px-4 font-bold" render={<Link href="/trip/create" />}><Plus />Create trip</Button>
       </div>
       {invitations.data?.length ? (
         <Card className="mb-6 border-primary/20 bg-primary/5">
@@ -58,21 +76,29 @@ export default function TripsPage() {
         </Card>
       ) : null}
       {trips.data?.length ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {trips.data.map((trip) => (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {trips.data.map((trip, index) => {
+            const members = participantQueries[index]?.data ?? []
+            const ownBalance = balanceQueries[index]?.data?.balances.find((row) => row.user.email === session?.user?.email)
+            const value = Number(ownBalance?.netBalance ?? 0)
+            const balanceLabel = value > 0 ? `You are owed ${trip.baseCurrency} ${Math.abs(value).toLocaleString()}` : value < 0 ? `You owe ${trip.baseCurrency} ${Math.abs(value).toLocaleString()}` : "Settled up"
+            return (
             <Link key={trip.id} href={`/trip/${trip.code}`} className="block">
-              <Card className="h-full transition-colors hover:border-primary/40 hover:bg-accent/30">
-                <CardHeader><CardTitle className="font-heading">{trip.name}</CardTitle></CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {trip.startDate} — {trip.endDate} · {trip.baseCurrency}
+              <Card className="h-full rounded-2xl py-6 transition-shadow hover:shadow-[0_8px_24px_oklch(0.2_0.02_60/0.08)]">
+                <CardHeader className="px-6"><div className="flex items-start justify-between gap-4"><div><CardTitle className="font-heading text-lg font-extrabold">{trip.name}</CardTitle><p className="mt-1 font-mono text-xs text-muted-foreground">{trip.code}</p></div><span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">{trip.baseCurrency}</span></div></CardHeader>
+                <CardContent className="space-y-4 px-6 text-sm text-muted-foreground">
+                  <AvatarGroup>{members.slice(0, 4).map((participant) => { const name = participant.user?.name ?? participant.user?.email ?? "Participant"; return <Avatar key={participant.id} size="sm" title={name}><AvatarFallback className={avatarColorFor(name)}>{initialsOf(name)}</AvatarFallback></Avatar> })}{members.length > 4 ? <AvatarGroupCount className="size-8 text-xs">+{members.length - 4}</AvatarGroupCount> : null}</AvatarGroup>
+                  <span className={cn("inline-flex rounded-[9px] px-3 py-2 text-[13px] font-bold", value > 0 ? "bg-emerald-50 text-emerald-700" : value < 0 ? "bg-red-50 text-red-700" : "bg-muted text-muted-foreground")}>{balanceQueries[index]?.isLoading ? `${trip.startDate} — ${trip.endDate}` : balanceLabel}</span>
                 </CardContent>
               </Card>
             </Link>
-          ))}
+          )})}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
-          <p>No trips yet. Create one to get started.</p>
+        <div className="rounded-2xl border border-dashed p-16 text-center">
+          <p className="font-bold">No trips yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">Create your first trip to start tracking shared costs.</p>
+          <Button className="mt-5" render={<Link href="/trip/create" />}><Plus />Create trip</Button>
         </div>
       )}
     </section>

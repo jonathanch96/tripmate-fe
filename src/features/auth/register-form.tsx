@@ -54,6 +54,20 @@ export function RegisterForm() {
 
   return (
     <Form {...form}>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 w-full gap-2 font-semibold"
+        onClick={() => signIn("google", { callbackUrl: "/trips" })}
+      >
+        <GoogleIcon className="size-[18px]" />
+        Continue with Google
+      </Button>
+      <div className="my-[18px] flex items-center gap-2.5">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">or</span>
+        <Separator className="flex-1" />
+      </div>
       {/* See login-form: without method="post" a pre-hydration submit leaks the password
           through the query string. */}
       <form className="space-y-4" method="post" onSubmit={form.handleSubmit(submit)}>
@@ -68,24 +82,10 @@ export function RegisterForm() {
         )} />
         <p className="text-xs text-muted-foreground">Use at least 8 characters with a letter and a number.</p>
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+        <Button type="submit" className="h-11 w-full font-bold" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting ? "Creating account…" : "Create account"}
         </Button>
       </form>
-      <div className="my-4 flex items-center gap-2">
-        <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground">OR</span>
-        <Separator className="flex-1" />
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full gap-2"
-        onClick={() => signIn("google", { callbackUrl: "/trips" })}
-      >
-        <GoogleIcon className="size-4" />
-        Continue with Google
-      </Button>
     </Form>
   )
 }

@@ -43,6 +43,20 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
 
   return (
     <Form {...form}>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 w-full gap-2 font-semibold"
+        onClick={() => signIn("google", { callbackUrl: nextPath })}
+      >
+        <GoogleIcon className="size-[18px]" />
+        Continue with Google
+      </Button>
+      <div className="my-[18px] flex items-center gap-2.5">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">or</span>
+        <Separator className="flex-1" />
+      </div>
       {/* method="post" is the safety net, not the transport: submitting stays client-side once
           hydrated, but a submit that beats hydration would otherwise default to GET and write
           the email and password into the URL, browser history, and any access log. */}
@@ -54,24 +68,10 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" autoComplete="current-password" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+        <Button type="submit" className="h-11 w-full font-bold" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
         </Button>
       </form>
-      <div className="my-4 flex items-center gap-2">
-        <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground">OR</span>
-        <Separator className="flex-1" />
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full gap-2"
-        onClick={() => signIn("google", { callbackUrl: nextPath })}
-      >
-        <GoogleIcon className="size-4" />
-        Continue with Google
-      </Button>
     </Form>
   )
 }

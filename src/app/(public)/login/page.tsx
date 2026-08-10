@@ -13,7 +13,7 @@ function safeNext(value: string | string[] | undefined) {
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
   const params = await searchParams
   return (
-    <AuthShell title="Welcome back" description="Sign in to continue planning and settling your trips."
+    <AuthShell title="Welcome back" description="Sign in to see your trips."
       alternate={<>New to TripMate? <Link className="font-medium text-primary hover:underline" href="/register">Create an account</Link></>}>
       <LoginForm nextPath={safeNext(params.next)} />
     </AuthShell>
