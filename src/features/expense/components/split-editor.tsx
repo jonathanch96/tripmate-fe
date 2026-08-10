@@ -78,44 +78,76 @@ export function SplitEditor({ amount, currency, type, selected, manual, particip
     ])
   }
 
+  const remainingLabel =
+    type === "equal" ? `${selected.length} people`
+    : type === "manual" ? (remaining.equals(0) ? "Fully allocated" : `${money(remaining.abs(), currency)} ${remaining.isNegative() ? "over" : "left"}`)
+    : type === "percent" ? `${percentTotal.toFixed(2)}% of 100%`
+    : `${shareTotal.toFixed(2)} total shares`
+  const remainingColor =
+    type === "equal" ? "text-muted-foreground"
+    : type === "manual" ? (remaining.equals(0) ? "text-success" : "text-amber-600 dark:text-amber-400")
+    : type === "percent" ? (percentTotal.equals(100) ? "text-success" : "text-amber-600 dark:text-amber-400")
+    : "text-muted-foreground"
+
   return (
-    <fieldset className="space-y-3">
-      <legend className="font-medium">How is it split?</legend>
-      <div className="flex flex-wrap gap-2">
+    <fieldset className="space-y-2.5">
+      <div className="flex gap-2">
         {MODES.map((mode) => (
-          <Button key={mode.value} type="button" variant={type === mode.value ? "default" : "outline"} size="sm" onClick={() => onType(mode.value)}>
+          <Button key={mode.value} type="button" variant={type === mode.value ? "default" : "outline"} size="sm" className="flex-1" onClick={() => onType(mode.value)}>
             {mode.label}
           </Button>
         ))}
       </div>
-      {type === "equal" ? participants.map((participant) => {
-        const checked = selected.includes(participant.userId)
-        return <label className="flex items-center justify-between rounded border p-2" key={participant.userId}><span className="flex items-center gap-2"><Checkbox checked={checked} onCheckedChange={() => onSelected(checked ? selected.filter((id) => id !== participant.userId) : [...selected, participant.userId])} />{participant.user?.name ?? participant.user?.email ?? "Participant"}</span><span className="tabular-nums">{preview.get(participant.userId) ?? "—"}</span></label>
-      }) : null}
-      {type === "manual" ? participants.map((participant) => {
-        const row = manual.find((item) => item.userId === participant.userId) ?? { userId: participant.userId, amount: "0" }
-        return <label className="grid grid-cols-[1fr_10rem] items-center gap-2" key={participant.userId}><span>{participant.user?.name ?? participant.user?.email ?? "Participant"}</span><Input aria-label={`Split for ${participant.user?.name ?? participant.userId}`} value={row.amount} inputMode="decimal" onChange={(event) => onManual([...manual.filter((item) => item.userId !== participant.userId), { userId: participant.userId, amount: event.target.value }])} /></label>
-      }) : null}
-      {type === "percent" || type === "shares" ? participants.map((participant) => {
-        const row = manual.find((item) => item.userId === participant.userId)
-        return (
-          <div className="grid grid-cols-[1fr_6rem_6rem] items-center gap-2" key={participant.userId}>
-            <span>{participant.user?.name ?? participant.user?.email ?? "Participant"}</span>
-            <Input
-              aria-label={`${type === "percent" ? "Percent" : "Shares"} for ${participant.user?.name ?? participant.userId}`}
-              value={row?.weight ?? ""}
-              inputMode="decimal"
-              onChange={(event) => setWeight(participant.userId, event.target.value)}
-            />
-            <span className="text-right text-sm tabular-nums text-muted-foreground">
-              {weightPreview.get(participant.userId) ?? "—"}
-            </span>
+      <div className="flex items-baseline justify-between">
+        <legend className="text-sm font-semibold">How is it split?</legend>
+        <span className={cn("text-xs font-semibold", remainingColor)}>{remainingLabel}</span>
+      </div>
+      <div className="space-y-1 rounded-lg border px-3">
+        {type === "equal" ? participants.map((participant) => {
+          const checked = selected.includes(participant.userId)
+          return <label className="flex items-center gap-3 border-b py-2.5 last:border-0" key={participant.userId}>
+            <Checkbox checked={checked} onCheckedChange={() => onSelected(checked ? selected.filter((id) => id !== participant.userId) : [...selected, participant.userId])} />
+            <span className="flex-1 text-sm font-medium">{participant.user?.name ?? participant.user?.email ?? "Participant"}</span>
+            <span className="text-sm font-semibold tabular-nums">{checked ? money(new Decimal(preview.get(participant.userId) ?? 0), currency) : "—"}</span>
+          </label>
+        }) : null}
+        {type === "manual" ? participants.map((participant) => {
+          const row = manual.find((item) => item.userId === participant.userId) ?? { userId: participant.userId, amount: "0" }
+          return <div className="flex items-center gap-3 border-b py-2.5 last:border-0" key={participant.userId}>
+            <span className="flex-1 text-sm font-medium">{participant.user?.name ?? participant.user?.email ?? "Participant"}</span>
+            <Input className="w-24 text-right" aria-label={`Split for ${participant.user?.name ?? participant.userId}`} value={row.amount} inputMode="decimal" placeholder="0.00" onChange={(event) => onManual([...manual.filter((item) => item.userId !== participant.userId), { userId: participant.userId, amount: event.target.value }])} />
           </div>
-        )
-      }) : null}
-      {type === "manual" ? <div className="flex items-center justify-between text-sm"><Button type="button" variant="outline" disabled={!manual.length} onClick={() => { const last = manual.at(-1); if (last) onManual(manual.map((row) => row.userId === last.userId ? { ...row, amount: new Decimal(row.amount || 0).plus(remaining).toString() } : row)) }}>Distribute rest</Button><span className={cn(remaining.equals(0) ? "text-success" : "text-amber-600 dark:text-amber-400")}>Remaining: {remaining.toFixed(2)}</span></div> : null}
-      {type === "percent" ? <div className="text-right text-sm"><span className={cn(percentTotal.equals(100) ? "text-success" : "text-amber-600 dark:text-amber-400")}>Total: {percentTotal.toFixed(2)}%{percentTotal.equals(100) ? "" : " (must equal 100%)"}</span></div> : null}
-      {type === "shares" ? <div className="text-right text-sm text-muted-foreground">Total shares: {shareTotal.toFixed(2)}</div> : null}
+        }) : null}
+        {type === "percent" || type === "shares" ? participants.map((participant) => {
+          const row = manual.find((item) => item.userId === participant.userId)
+          return (
+            <div className="flex items-center gap-3 border-b py-2.5 last:border-0" key={participant.userId}>
+              <span className="flex-1 text-sm font-medium">{participant.user?.name ?? participant.user?.email ?? "Participant"}</span>
+              <Input
+                className="w-20 text-right"
+                aria-label={`${type === "percent" ? "Percent" : "Shares"} for ${participant.user?.name ?? participant.userId}`}
+                value={row?.weight ?? ""}
+                inputMode="decimal"
+                placeholder={type === "percent" ? "0%" : "0"}
+                onChange={(event) => setWeight(participant.userId, event.target.value)}
+              />
+              <span className="w-20 text-right text-sm font-semibold tabular-nums">
+                {type === "shares" ? "" : money(new Decimal(weightPreview.get(participant.userId) ?? 0), currency)}
+              </span>
+            </div>
+          )
+        }) : null}
+      </div>
+      {type === "manual" ? (
+        <Button type="button" variant="outline" size="sm" disabled={!manual.length} onClick={() => { const last = manual.at(-1); if (last) onManual(manual.map((row) => row.userId === last.userId ? { ...row, amount: new Decimal(row.amount || 0).plus(remaining).toString() } : row)) }}>
+          Distribute rest
+        </Button>
+      ) : null}
     </fieldset>
   )
+}
+
+function money(value: Decimal, currency: string) {
+  const scale = zeroScale.has(currency) ? 0 : 2
+  return value.toFixed(scale)
 }
