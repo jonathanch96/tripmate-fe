@@ -30,7 +30,7 @@ export function PayerEditor({ amount, rows, participants, onChange }: { amount: 
       ))}
       <div className="flex items-center justify-between text-sm">
         <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { userId: "", amount: "0" }])}>+ Add payer</Button>
-        <span className={cn("font-medium", remaining.equals(0) ? "text-success" : "text-amber-600")}>Remaining: {remaining.toFixed(2)}</span>
+        <span className={cn("font-medium", remaining.equals(0) ? "text-success" : "text-amber-600 dark:text-amber-400")}>Remaining: {remaining.toFixed(2)}</span>
       </div>
     </fieldset>
   )

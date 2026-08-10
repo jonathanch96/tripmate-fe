@@ -113,8 +113,8 @@ export function SplitEditor({ amount, currency, type, selected, manual, particip
           </div>
         )
       }) : null}
-      {type === "manual" ? <div className="flex items-center justify-between text-sm"><Button type="button" variant="outline" disabled={!manual.length} onClick={() => { const last = manual.at(-1); if (last) onManual(manual.map((row) => row.userId === last.userId ? { ...row, amount: new Decimal(row.amount || 0).plus(remaining).toString() } : row)) }}>Distribute rest</Button><span className={cn(remaining.equals(0) ? "text-success" : "text-amber-600")}>Remaining: {remaining.toFixed(2)}</span></div> : null}
-      {type === "percent" ? <div className="text-right text-sm"><span className={cn(percentTotal.equals(100) ? "text-success" : "text-amber-600")}>Total: {percentTotal.toFixed(2)}%{percentTotal.equals(100) ? "" : " (must equal 100%)"}</span></div> : null}
+      {type === "manual" ? <div className="flex items-center justify-between text-sm"><Button type="button" variant="outline" disabled={!manual.length} onClick={() => { const last = manual.at(-1); if (last) onManual(manual.map((row) => row.userId === last.userId ? { ...row, amount: new Decimal(row.amount || 0).plus(remaining).toString() } : row)) }}>Distribute rest</Button><span className={cn(remaining.equals(0) ? "text-success" : "text-amber-600 dark:text-amber-400")}>Remaining: {remaining.toFixed(2)}</span></div> : null}
+      {type === "percent" ? <div className="text-right text-sm"><span className={cn(percentTotal.equals(100) ? "text-success" : "text-amber-600 dark:text-amber-400")}>Total: {percentTotal.toFixed(2)}%{percentTotal.equals(100) ? "" : " (must equal 100%)"}</span></div> : null}
       {type === "shares" ? <div className="text-right text-sm text-muted-foreground">Total shares: {shareTotal.toFixed(2)}</div> : null}
     </fieldset>
   )
