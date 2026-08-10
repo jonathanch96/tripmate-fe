@@ -12,8 +12,8 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href={status === "authenticated" ? "/trips" : "/"} className="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <Plane className="size-7 text-blue-600" aria-hidden="true" />
+        <Link href={status === "authenticated" ? "/trips" : "/"} className="flex items-center gap-2 font-heading text-xl font-bold tracking-tight">
+          <Plane className="size-7 text-primary" aria-hidden="true" />
           <span>TripMate</span>
         </Link>
         <nav aria-label="Primary navigation" className="flex items-center gap-3">

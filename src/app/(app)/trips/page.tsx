@@ -34,17 +34,17 @@ export default function TripsPage() {
 
   return (
     <section>
-      <div className="mb-6 flex justify-between">
-        <h1 className="text-3xl font-semibold">My trips</h1>
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="font-heading text-3xl font-semibold">My trips</h1>
         <Button render={<Link href="/trip/create" />}>Create trip</Button>
       </div>
       {invitations.data?.length ? (
-        <Card className="mb-6">
-          <CardHeader><CardTitle>You were invited</CardTitle></CardHeader>
+        <Card className="mb-6 border-primary/20 bg-primary/5">
+          <CardHeader><CardTitle className="text-base">You were invited</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {invitations.data.map((invitation) => (
               <div key={invitation.id} className="flex items-center justify-between">
-                <span>{invitation.email}</span>
+                <span className="text-sm">{invitation.email}</span>
                 <Button
                   size="sm"
                   disabled={accept.isPending}
@@ -58,20 +58,22 @@ export default function TripsPage() {
         </Card>
       ) : null}
       {trips.data?.length ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {trips.data.map((trip) => (
-            <Link key={trip.id} href={`/trip/${trip.code}`}>
-              <Card>
-                <CardHeader><CardTitle>{trip.name}</CardTitle></CardHeader>
-                <CardContent>{trip.startDate} — {trip.endDate} · {trip.baseCurrency}</CardContent>
+            <Link key={trip.id} href={`/trip/${trip.code}`} className="block">
+              <Card className="h-full transition-colors hover:border-primary/40 hover:bg-accent/30">
+                <CardHeader><CardTitle className="font-heading">{trip.name}</CardTitle></CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  {trip.startDate} — {trip.endDate} · {trip.baseCurrency}
+                </CardContent>
               </Card>
             </Link>
           ))}
         </div>
       ) : (
-        <p className="rounded-xl border p-10 text-center text-muted-foreground">
-          No trips yet. Create one to get started.
-        </p>
+        <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
+          <p>No trips yet. Create one to get started.</p>
+        </div>
       )}
     </section>
   )

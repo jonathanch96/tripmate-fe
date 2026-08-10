@@ -5,7 +5,7 @@ import { expenseFormFromExpense } from "@/features/expense/components/expense-di
 import type { Expense } from "@/features/expense/types"
 
 const expense: Expense = {
-  id: crypto.randomUUID(), tripId: crypto.randomUUID(), expenseDate: "2026-08-06",
+  id: crypto.randomUUID(), tripId: crypto.randomUUID(), categoryId: null, expenseDate: "2026-08-06",
   description: "Dinner", amount: "12000.00", currency: "PHP", splitType: "manual",
   status: "approved", source: "manual", note: "Team meal", canEdit: true, canDelete: true, canApprove: false, canReject: false,
   version: 3, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -16,7 +16,7 @@ const expense: Expense = {
 describe("expense editing", () => {
   it("repopulates every money row and the optimistic-lock version", () => {
     expect(expenseFormFromExpense(expense)).toEqual({
-      expenseDate: "2026-08-06", description: "Dinner", amount: "12000.00", currency: "PHP",
+      expenseDate: "2026-08-06", description: "Dinner", amount: "12000.00", currency: "PHP", categoryId: null,
       splitType: "manual", payers: expense.payers.map(({ userId, amount }) => ({ userId, amount })),
       participants: undefined, splits: expense.splits.map(({ userId, amount }) => ({ userId, amount })),
       note: "Team meal", version: 3,
