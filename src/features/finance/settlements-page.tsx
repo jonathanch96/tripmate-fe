@@ -48,7 +48,7 @@ export function SettlementsPage() {
   function prefill(debt: Transfer) { setDraft({ ...draft, fromUserId: debt.fromUserId, toUserId: debt.toUserId, amount: debt.amount, currency: debt.currency }); setFormError(""); setRecordOpen(true) }
   function submit(event: FormEvent) { event.preventDefault(); setFormError(""); create.mutate() }
   function submitRejection(event: FormEvent) { event.preventDefault(); if (!rejecting || !reason.trim()) { setRejectError("Give a reason so the payer knows what to fix."); return } action.mutate({ row: rejecting, action: "reject", body: { reason: reason.trim() } }) }
-  return <section className="space-y-6"><div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">Settlements</h2><p className="text-sm text-muted-foreground">Record transfers and track planner approval.</p></div>
+  return <section className="space-y-6"><div className="flex items-center justify-between gap-3"><div><h2 className="font-heading text-xl font-semibold">Settlements</h2><p className="text-sm text-muted-foreground">Record transfers and track planner approval.</p></div>
     <Dialog open={recordOpen} onOpenChange={(open) => { setRecordOpen(open); if (!open) setFormError("") }}>
       <DialogTrigger render={<Button />}>Record a settlement</DialogTrigger>
       <DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Record a settlement</DialogTitle><DialogDescription>Log a payment between two participants. The planner approves it if this trip requires approval.</DialogDescription></DialogHeader>
@@ -66,18 +66,18 @@ export function SettlementsPage() {
       </DialogContent>
     </Dialog>
   </div>
-    <Card><CardHeader><CardTitle>Outstanding debts</CardTitle></CardHeader><CardContent className="space-y-3">{balances.data?.debts.length ? balances.data.debts.map((debt, i) => <div key={i} className="flex flex-wrap items-center justify-between gap-2"><span>{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong>{debt.currency} {debt.amount}</strong></span><Button size="sm" onClick={() => prefill(debt)}>Settle this</Button></div>) : <p className="text-muted-foreground">No outstanding debts.</p>}</CardContent></Card>
+    <Card><CardHeader><CardTitle>Outstanding debts</CardTitle></CardHeader><CardContent className="space-y-3">{balances.data?.debts.length ? balances.data.debts.map((debt, i) => <div key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"><span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{debt.currency} {debt.amount}</strong></span><Button size="sm" onClick={() => prefill(debt)}>Settle this</Button></div>) : <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">No outstanding debts.</div>}</CardContent></Card>
     <Card><CardHeader><CardTitle>History</CardTitle></CardHeader><CardContent className="space-y-3">{actionError ? <p role="alert" className="text-sm text-destructive">{actionError}</p> : null}{history.data?.length ? <Table>
       <TableHeader><TableRow><TableHead>From</TableHead><TableHead>To</TableHead><TableHead>Method</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
       <TableBody>{history.data.map((row) => <TableRow key={row.id}>
         <TableCell>{row.fromUser?.name ?? names.get(row.fromUserId)}</TableCell>
         <TableCell>{row.toUser?.name ?? names.get(row.toUserId)}</TableCell>
         <TableCell>{row.method === "bank_transfer" ? "Bank transfer" : "Cash"}</TableCell>
-        <TableCell><Badge variant="outline">{row.status}</Badge></TableCell>
-        <TableCell className="text-right font-medium">{row.currency} {row.amount}</TableCell>
+        <TableCell><Badge variant={row.status === "pending" ? "secondary" : row.status === "rejected" ? "destructive" : "outline"}>{row.status}</Badge></TableCell>
+        <TableCell className="text-right font-medium tabular-nums">{row.currency} {row.amount}</TableCell>
         <TableCell>{trip.canEditSettings && row.status === "pending" ? <div className="flex gap-1"><Button size="sm" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>Approve</Button><Button size="sm" variant="outline" disabled={action.isPending} onClick={() => { setRejecting(row); setReason(""); setRejectError("") }}>Reject</Button><Button size="sm" variant="destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>Delete</Button></div> : null}</TableCell>
       </TableRow>)}</TableBody>
-    </Table> : <p className="text-muted-foreground">No settlements recorded.</p>}</CardContent></Card>
+    </Table> : <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">No settlements recorded.</div>}</CardContent></Card>
     <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectError("") } }}>
       <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Reject this settlement</DialogTitle><DialogDescription>{rejecting ? `${names.get(rejecting.fromUserId)} → ${names.get(rejecting.toUserId)} · ${rejecting.currency} ${rejecting.amount}` : ""}</DialogDescription></DialogHeader>
         <form className="space-y-3" method="post" onSubmit={submitRejection}>

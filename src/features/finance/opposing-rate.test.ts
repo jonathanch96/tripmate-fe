@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { opposingRate } from "@/features/finance/final-page"
+import { opposingRate } from "@/features/finance/exchange-rate-manager"
 import type { Rate } from "@/features/finance/types"
 
 const rate = (from: string, to: string): Rate =>

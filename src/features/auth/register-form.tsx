@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 
+import { GoogleIcon } from "@/components/icons/google"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
 import { authErrorCopy } from "@/features/auth/error-copy"
 import { registerSchema, type RegisterInput } from "@/features/auth/schema"
 
@@ -70,6 +72,20 @@ export function RegisterForm() {
           {form.formState.isSubmitting ? "Creating account…" : "Create account"}
         </Button>
       </form>
+      <div className="my-4 flex items-center gap-2">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">OR</span>
+        <Separator className="flex-1" />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full gap-2"
+        onClick={() => signIn("google", { callbackUrl: "/trips" })}
+      >
+        <GoogleIcon className="size-4" />
+        Continue with Google
+      </Button>
     </Form>
   )
 }

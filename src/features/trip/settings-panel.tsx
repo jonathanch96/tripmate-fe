@@ -6,12 +6,28 @@ import { useSession } from "next-auth/react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
+import {
+  ArrowLeft,
+  Coins,
+  ShieldCheck,
+  SlidersHorizontal,
+  Tag,
+  Users,
+  X,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { Switch } from "@/components/ui/switch"
+import {
+  createExpenseCategory,
+  deleteExpenseCategory,
+  listExpenseCategories,
+} from "@/features/expense/category-api"
+import { ExchangeRateManager } from "@/features/finance/exchange-rate-manager"
 import {
   participantBankSchema,
   participantUpdateSchema,
@@ -20,10 +36,12 @@ import {
   type TripUpdateInput,
 } from "@/features/trip/schema"
 import { useTrip } from "@/features/trip/trip-context"
-import type { Participant, Trip } from "@/features/trip/types"
+import type { Invitation, Participant, Trip } from "@/features/trip/types"
+import { categoryColorFor } from "@/lib/category-colors"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
 import { qk } from "@/lib/query-keys"
+import { cn } from "@/lib/utils"
 
 const booleanSettings = [
   ["approvalRequiredExpenses", "Require expense approval"],
@@ -31,6 +49,10 @@ const booleanSettings = [
   ["multiCurrencyEnabled", "Enable multiple currencies"],
   ["allowSettlementBeforeEnd", "Allow settlement before trip ends"],
 ] as const
+
+function roleLabel(role: Participant["role"]) {
+  return role === "planner" ? "Owner" : "Member"
+}
 
 function settingsPayload(trip: Trip): TripUpdateInput {
   return tripUpdateSchema.parse({
@@ -104,13 +126,325 @@ function BankEditor({
   )
 }
 
-export function SettingsPanel() {
-  const initial = useTrip()
+type Section = "menu" | "currencies" | "categories" | "roles" | "members" | "preferences"
+
+const MENU_ITEMS: Array<{ id: Section; label: string; description: string; icon: typeof Coins }> = [
+  { id: "currencies", label: "Currencies & exchange rates", description: "Base currency and rates between currencies used on this trip.", icon: Coins },
+  { id: "categories", label: "Categories", description: "The categories expenses can be tagged with.", icon: Tag },
+  { id: "roles", label: "Roles & permissions", description: "What owners and members can each do.", icon: ShieldCheck },
+  { id: "members", label: "Members & invites", description: "Who's on this trip, bank details, and pending invites.", icon: Users },
+  { id: "preferences", label: "Trip preferences", description: "Approval requirements and editing rules.", icon: SlidersHorizontal },
+]
+
+function SectionHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="icon-sm" aria-label="Back to settings" onClick={onBack}>
+        <ArrowLeft className="size-4" aria-hidden="true" />
+      </Button>
+      <h3 className="font-heading text-lg font-semibold">{title}</h3>
+    </div>
+  )
+}
+
+function SettingsMenu({ onSelect }: { onSelect: (section: Section) => void }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {MENU_ITEMS.map((item) => {
+        const Icon = item.icon
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item.id)}
+            className="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/30"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+              <Icon className="size-4.5" aria-hidden="true" />
+            </span>
+            <span>
+              <span className="block font-medium">{item.label}</span>
+              <span className="block text-sm text-muted-foreground">{item.description}</span>
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function CategoriesSection({ tripCode, canEdit, onBack }: { tripCode: string; canEdit: boolean; onBack: () => void }) {
+  const client = useQueryClient()
+  const [name, setName] = useState("")
+  const categories = useQuery({ queryKey: qk.expenseCategories(tripCode), queryFn: async () => (await listExpenseCategories(tripCode)).data ?? [] })
+  const refresh = () => client.invalidateQueries({ queryKey: qk.expenseCategories(tripCode) })
+  const create = useMutation({
+    mutationFn: (value: string) => createExpenseCategory(tripCode, value),
+    onSuccess: async () => { setName(""); toast.success("Category added"); await refresh() },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : "Could not add category"),
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteExpenseCategory(tripCode, id),
+    onSuccess: async () => { toast.success("Category removed"); await refresh() },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : "Could not remove category"),
+  })
+  return (
+    <div className="space-y-4">
+      <SectionHeader title="Categories" onBack={onBack} />
+      <Card>
+        <CardContent className="space-y-3 pt-6">
+          <div className="flex flex-wrap gap-2">
+            {(categories.data ?? []).map((category) => (
+              <span key={category.id} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm font-medium", categoryColorFor(category.name))}>
+                {category.name}
+                {category.isDefault ? null : canEdit ? (
+                  <button type="button" aria-label={`Remove ${category.name}`} onClick={() => remove.mutate(category.id)} disabled={remove.isPending}>
+                    <X className="size-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </span>
+            ))}
+          </div>
+          {canEdit ? (
+            <form className="flex gap-2" method="post" onSubmit={(event) => { event.preventDefault(); if (name.trim()) create.mutate(name.trim()) }}>
+              <Input placeholder="New category name" value={name} onChange={(event) => setName(event.target.value)} maxLength={50} />
+              <Button type="submit" disabled={create.isPending || !name.trim()}>Add</Button>
+            </form>
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function RolesSection({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="space-y-4">
+      <SectionHeader title="Roles & permissions" onBack={onBack} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Owner</CardTitle></CardHeader>
+          <CardContent className="space-y-1.5 text-sm text-muted-foreground">
+            <p>Edits any expense or settlement regardless of who created it.</p>
+            <p>Approves or rejects pending expenses and settlements.</p>
+            <p>Changes trip settings, categories, and currencies.</p>
+            <p>Invites and removes members, and finalizes the trip.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Member</CardTitle></CardHeader>
+          <CardContent className="space-y-1.5 text-sm text-muted-foreground">
+            <p>Adds expenses and settlements.</p>
+            <p>Edits their own entries (or any entry, if the trip allows it).</p>
+            <p>Views balances, the transfer plan, and trip history.</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function MembersSection({
+  trip,
+  participants,
+  onBack,
+}: {
+  trip: Trip
+  participants: Participant[]
+  onBack: () => void
+}) {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   const [email, setEmail] = useState("")
   const [link, setLink] = useState("")
   const [editingParticipant, setEditingParticipant] = useState<string | null>(null)
+
+  const invitations = useQuery({
+    queryKey: qk.invitations(trip.code),
+    queryFn: async () => (await apiFetch<Invitation[]>(`/api/trips/${trip.code}/invitations`)).data ?? [],
+    enabled: trip.canEditSettings,
+  })
+  const pending = (invitations.data ?? []).filter((invitation) => invitation.status === "pending")
+
+  const invitationMutation = useMutation({
+    mutationFn: async () =>
+      apiFetch<{ status: string; inviteLink?: string }>(`/api/trips/${trip.code}/invitations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }),
+    onSuccess: (response) => {
+      if (response.data?.inviteLink) setLink(`${location.origin}${response.data.inviteLink}`)
+      toast.success(response.data?.status === "added" ? "Participant added" : "Invitation created")
+      void queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) })
+    },
+    onError: () => toast.error("Could not create invitation"),
+  })
+  const revokeMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/trips/${trip.code}/invitations/${id}`, { method: "DELETE" }),
+    onSuccess: async () => { toast.success("Invitation revoked"); await queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) }) },
+    onError: () => toast.error("Could not revoke invitation"),
+  })
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader title="Members & invites" onBack={onBack} />
+      <Card>
+        <CardHeader><CardTitle className="text-base">Members</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {participants.map((participant) => {
+            const name = participant.user?.name ?? participant.user?.email ?? "Participant"
+            const mayEditBank = trip.canEditSettings || participant.userId === session?.user?.id
+            return (
+              <div key={participant.id} className="border-b pb-3 last:border-0">
+                <div className="flex items-center justify-between gap-4">
+                  <span>{name} <span className="text-muted-foreground">{participant.user?.email}</span></span>
+                  <span className="flex items-center gap-2">
+                    <Badge variant={participant.role === "planner" ? "default" : "secondary"}>{roleLabel(participant.role)}</Badge>
+                    <span className="text-sm text-muted-foreground">{participant.bankInfo?.accountNumber ?? "No bank details"}</span>
+                    {mayEditBank ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Edit bank details for ${name}`}
+                        onClick={() => setEditingParticipant(participant.id)}
+                      >
+                        Edit bank
+                      </Button>
+                    ) : null}
+                  </span>
+                </div>
+                {editingParticipant === participant.id ? (
+                  <BankEditor code={trip.code} participant={participant} onClose={() => setEditingParticipant(null)} />
+                ) : null}
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
+      {trip.canEditSettings ? (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Invite someone</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
+              <Button disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>Invite</Button>
+            </div>
+            {link ? (
+              <>
+                <p className="text-sm text-muted-foreground">Email delivery lands in a later release — share this link directly.</p>
+                <Input readOnly value={link} />
+              </>
+            ) : null}
+            {pending.length ? (
+              <div className="space-y-2 border-t pt-3">
+                <p className="text-sm font-medium">Pending invites</p>
+                {pending.map((invitation) => (
+                  <div key={invitation.id} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{invitation.email}</span>
+                    <Button size="sm" variant="ghost" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>Revoke</Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
+  )
+}
+
+function PreferencesSection({
+  trip,
+  updateSettings,
+  disabled,
+  onBack,
+}: {
+  trip: Trip
+  updateSettings: (change: Partial<Trip["settings"]>) => void
+  disabled: boolean
+  onBack: () => void
+}) {
+  return (
+    <div className="space-y-4">
+      <SectionHeader title="Trip preferences" onBack={onBack} />
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <label className="flex items-center justify-between gap-4">
+            <span className="text-sm">Edit permission</span>
+            <NativeSelect
+              aria-label="Edit permission"
+              disabled={!trip.canEditSettings || disabled}
+              value={trip.settings.editPermission}
+              onChange={(event) => updateSettings({ editPermission: event.target.value as Trip["settings"]["editPermission"] })}
+            >
+              <NativeSelectOption value="everyone">Everyone</NativeSelectOption>
+              <NativeSelectOption value="own_only">Own entries only</NativeSelectOption>
+            </NativeSelect>
+          </label>
+          {booleanSettings.map(([key, label]) => (
+            <label key={key} className="flex items-center justify-between gap-4">
+              <span className="text-sm">{label}</span>
+              <Switch
+                aria-label={label}
+                checked={trip.settings[key]}
+                disabled={!trip.canEditSettings || disabled}
+                onCheckedChange={() => updateSettings({ [key]: !trip.settings[key] })}
+              />
+            </label>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function CurrenciesSection({
+  trip,
+  updateBaseCurrency,
+  disabled,
+  onBack,
+}: {
+  trip: Trip
+  updateBaseCurrency: (value: string) => void
+  disabled: boolean
+  onBack: () => void
+}) {
+  const [baseCurrency, setBaseCurrency] = useState(trip.baseCurrency)
+  return (
+    <div className="space-y-4">
+      <SectionHeader title="Currencies & exchange rates" onBack={onBack} />
+      <Card>
+        <CardHeader><CardTitle className="text-base">Base currency</CardTitle></CardHeader>
+        <CardContent className="flex gap-2">
+          <Input
+            maxLength={3}
+            className="w-24 uppercase"
+            value={baseCurrency}
+            disabled={!trip.canEditSettings || disabled}
+            onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
+          />
+          {trip.canEditSettings ? (
+            <Button size="sm" disabled={disabled || baseCurrency === trip.baseCurrency} onClick={() => updateBaseCurrency(baseCurrency)}>
+              Save
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle className="text-base">Exchange rates</CardTitle></CardHeader>
+        <CardContent>
+          <ExchangeRateManager tripCode={trip.code} baseCurrency={trip.baseCurrency} canEdit={trip.canEditSettings} />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export function SettingsPanel() {
+  const initial = useTrip()
+  const queryClient = useQueryClient()
+  const [section, setSection] = useState<Section>("menu")
 
   const tripQuery = useQuery({
     queryKey: qk.trip(initial.trip.code),
@@ -176,20 +510,9 @@ export function SettingsPanel() {
     )
   }
 
-  const invitationMutation = useMutation({
-    mutationFn: async () =>
-      apiFetch<{ status: string; inviteLink?: string }>(`/api/trips/${trip.code}/invitations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      }),
-    onSuccess: (response) => {
-      if (response.data?.inviteLink) setLink(`${location.origin}${response.data.inviteLink}`)
-      toast.success(response.data?.status === "added" ? "Participant added" : "Invitation created")
-      void queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) })
-    },
-    onError: () => toast.error("Could not create invitation"),
-  })
+  function updateBaseCurrency(value: string) {
+    settingsMutation.mutate(settingsPayload({ ...trip, baseCurrency: value }))
+  }
 
   return (
     <div className="space-y-6">
@@ -200,85 +523,12 @@ export function SettingsPanel() {
           <Button onClick={() => navigator.clipboard.writeText(`${location.origin}/trip/${trip.code}`)}>Copy link</Button>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle>Settings</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <label className="flex items-center justify-between gap-4">
-            <span>Edit permission</span>
-            <NativeSelect
-              aria-label="Edit permission"
-              disabled={!trip.canEditSettings || settingsMutation.isPending}
-              value={trip.settings.editPermission}
-              onChange={(event) => updateSettings({ editPermission: event.target.value as Trip["settings"]["editPermission"] })}
-            >
-              <NativeSelectOption value="everyone">Everyone</NativeSelectOption>
-              <NativeSelectOption value="own_only">Own entries only</NativeSelectOption>
-            </NativeSelect>
-          </label>
-          {booleanSettings.map(([key, label]) => (
-            <label key={key} className="flex items-center justify-between gap-4">
-              <span>{label}</span>
-              <input
-                aria-label={label}
-                type="checkbox"
-                checked={trip.settings[key]}
-                disabled={!trip.canEditSettings || settingsMutation.isPending}
-                onChange={() => updateSettings({ [key]: !trip.settings[key] })}
-              />
-            </label>
-          ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle>Participants</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {participantsQuery.data.map((participant) => {
-            const name = participant.user?.name ?? participant.user?.email ?? "Participant"
-            const mayEditBank = trip.canEditSettings || participant.userId === session?.user?.id
-            return (
-              <div key={participant.id} className="border-b pb-3">
-                <div className="flex items-center justify-between gap-4">
-                  <span>{name} <span className="text-muted-foreground">{participant.user?.email}</span></span>
-                  <span className="flex items-center gap-2">
-                    <Badge>{participant.role}</Badge>
-                    {participant.bankInfo?.accountNumber ?? "No bank details"}
-                    {mayEditBank ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        aria-label={`Edit bank details for ${name}`}
-                        onClick={() => setEditingParticipant(participant.id)}
-                      >
-                        Edit bank
-                      </Button>
-                    ) : null}
-                  </span>
-                </div>
-                {editingParticipant === participant.id ? (
-                  <BankEditor code={trip.code} participant={participant} onClose={() => setEditingParticipant(null)} />
-                ) : null}
-              </div>
-            )
-          })}
-        </CardContent>
-      </Card>
-      {trip.canEditSettings ? (
-        <Card>
-          <CardHeader><CardTitle>Invite someone</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
-              <Button disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>Invite</Button>
-            </div>
-            {link ? (
-              <>
-                <p className="text-sm">Email delivery lands in a later release — share this link directly.</p>
-                <Input readOnly value={link} />
-              </>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
+      {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
+      {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} disabled={settingsMutation.isPending} onBack={() => setSection("menu")} /> : null}
+      {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} onBack={() => setSection("menu")} /> : null}
+      {section === "roles" ? <RolesSection onBack={() => setSection("menu")} /> : null}
+      {section === "members" ? <MembersSection trip={trip} participants={participantsQuery.data} onBack={() => setSection("menu")} /> : null}
+      {section === "preferences" ? <PreferencesSection trip={trip} updateSettings={updateSettings} disabled={settingsMutation.isPending} onBack={() => setSection("menu")} /> : null}
     </div>
   )
 }

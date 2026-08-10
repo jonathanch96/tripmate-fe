@@ -68,18 +68,30 @@ describe("SettingsPanel", () => {
 
   beforeEach(() => {
     apiFetch.mockReset()
-    apiFetch.mockResolvedValue({ success: true, data: trip })
+    apiFetch.mockImplementation((path: string) =>
+      Promise.resolve({ success: true, data: path.includes("/invitations") ? [] : trip }),
+    )
   })
 
-  it("renders edit-permission and participant bank controls", () => {
+  it("renders the edit-permission control behind the trip preferences tile", () => {
     render(<SettingsPanel />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole("button", { name: /Trip preferences/ }))
     expect(screen.getByLabelText("Edit permission")).toBeTruthy()
+  })
+
+  it("renders participant bank controls behind the members tile", () => {
+    render(<SettingsPanel />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole("button", { name: /Members & invites/ }))
     expect(screen.getByRole("button", { name: "Edit bank details for Planner" })).toBeTruthy()
   })
 
   it("sends only the validated settings update shape", async () => {
     render(<SettingsPanel />, { wrapper: Wrapper })
-    fireEvent.click(screen.getByLabelText("Require expense approval"))
+    fireEvent.click(screen.getByRole("button", { name: /Trip preferences/ }))
+    // The switch primitive's own aria-labelledby wiring shadows a plain aria-label in the
+    // accessible-name computation, so find it structurally via the row it's labelled by instead.
+    const switchControl = screen.getByText("Require expense approval").closest("label")!.querySelector('[role="switch"]')!
+    fireEvent.click(switchControl)
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1))
     const init = apiFetch.mock.calls[0][1] as RequestInit
@@ -97,6 +109,7 @@ describe("SettingsPanel", () => {
 
   it("never seeds an editable account field with a masked account number", () => {
     render(<SettingsPanel />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole("button", { name: /Members & invites/ }))
     fireEvent.click(screen.getByRole("button", { name: "Edit bank details for Member" }))
 
     const accountNumber = screen.getByLabelText("Account number") as HTMLInputElement
@@ -106,11 +119,12 @@ describe("SettingsPanel", () => {
 
   it("blocks a masked account number at the actual form submission boundary", async () => {
     render(<SettingsPanel />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole("button", { name: /Members & invites/ }))
     fireEvent.click(screen.getByRole("button", { name: "Edit bank details for Member" }))
     fireEvent.change(screen.getByLabelText("Account number"), { target: { value: "••••4321" } })
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     expect((await screen.findByRole("alert")).textContent).toContain("Enter the complete account number")
-    expect(apiFetch).not.toHaveBeenCalled()
+    expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining("/participants/"), expect.anything())
   })
 })

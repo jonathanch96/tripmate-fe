@@ -1,11 +1,16 @@
-export type MoneyRow = { userId: string; amount: string }
+export type MoneyRow = { userId: string; amount: string; weight?: string }
+
+export type SplitType = "equal" | "manual" | "percent" | "shares"
+
+export type ExpenseCategory = { id: string; tripId: string | null; name: string; isDefault: boolean }
 
 export type ExpensePayload = {
   expenseDate: string
   description: string
   amount: string
   currency: string
-  splitType: "equal" | "manual"
+  categoryId?: string | null
+  splitType: SplitType
   payers: MoneyRow[]
   participants?: string[]
   splits?: MoneyRow[]
@@ -15,11 +20,12 @@ export type ExpensePayload = {
 export type Expense = {
   id: string
   tripId: string
+  categoryId: string | null
   expenseDate: string
   description: string
   amount: string
   currency: string
-  splitType: "equal" | "manual" | "item"
+  splitType: "equal" | "manual" | "item" | "percent" | "shares"
   status: "pending" | "approved" | "rejected"
   source: "manual" | "receipt"
   note: string | null

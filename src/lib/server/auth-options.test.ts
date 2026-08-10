@@ -1,7 +1,7 @@
 import type { JWT } from "next-auth/jwt"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { authorizeCredentials, logoutRefreshToken, refreshAccessToken } from "@/lib/server/auth-options"
+import { authorizeCredentials, authorizeGoogle, logoutRefreshToken, refreshAccessToken } from "@/lib/server/auth-options"
 
 const backendFetch = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/server/backend", () => ({ backendFetch }))
@@ -26,6 +26,19 @@ describe("NextAuth backend integration", () => {
   it("surfaces the backend catalog code for failed authorization", async () => {
     backendFetch.mockResolvedValue({ status: 401, envelope: { success: false, code: "INVALID_CREDENTIALS", data: null } })
     await expect(authorizeCredentials({ email: "a@example.com", password: "wrong" })).rejects.toThrow("INVALID_CREDENTIALS")
+  })
+
+  it("maps a verified Google ID token into the same server-side token user shape", async () => {
+    backendFetch.mockResolvedValue({ status: 200, envelope: { success: true, data: session } })
+    await expect(authorizeGoogle("google-id-token")).resolves.toMatchObject({
+      id: "user-1", email: "a@example.com", accessToken: "access-new", refreshToken: "refresh-new",
+    })
+    expect(backendFetch).toHaveBeenCalledWith("/auth/google", expect.objectContaining({ body: JSON.stringify({ id_token: "google-id-token" }) }))
+  })
+
+  it("surfaces the backend catalog code when Google verification fails", async () => {
+    backendFetch.mockResolvedValue({ status: 401, envelope: { success: false, code: "GOOGLE_TOKEN_INVALID", data: null } })
+    await expect(authorizeGoogle("bad-token")).rejects.toThrow("GOOGLE_TOKEN_INVALID")
   })
 
   it("single-flights concurrent refresh rotation per user", async () => {
