@@ -10,8 +10,8 @@ import type { Participant } from "@/features/trip/types"
 export function ExpenseFilters({ participants, currencies, categories }: { participants: Participant[]; currencies: string[]; categories: ExpenseCategory[] }) {
   const router = useRouter(), pathname = usePathname(), current = useSearchParams()
   function set(key: string, value: string) { const params = new URLSearchParams(current); if (value) params.set(key, value); else params.delete(key); params.delete("page"); router.replace(`${pathname}?${params}`) }
-  return <div className="grid gap-2.5 rounded-[14px] border bg-white p-3 md:grid-cols-7">
-    <Input aria-label="Search expenses" placeholder="Search description…" defaultValue={current.get("q") ?? ""} onBlur={(event) => set("q", event.target.value)} />
+  return <div className="grid gap-2 rounded-xl border p-3 md:grid-cols-7">
+    <Input aria-label="Search expenses" placeholder="Search" defaultValue={current.get("q") ?? ""} onBlur={(event) => set("q", event.target.value)} />
     <NativeSelect aria-label="Status" value={current.get("status") ?? ""} onChange={(event) => set("status", event.target.value)}><NativeSelectOption value="">All statuses</NativeSelectOption><NativeSelectOption value="pending">Pending</NativeSelectOption><NativeSelectOption value="approved">Approved</NativeSelectOption><NativeSelectOption value="rejected">Rejected</NativeSelectOption></NativeSelect>
     <NativeSelect aria-label="Category" value={current.get("category_id") ?? ""} onChange={(event) => set("category_id", event.target.value)}><NativeSelectOption value="">All categories</NativeSelectOption>{categories.map((category) => <NativeSelectOption key={category.id} value={category.id}>{category.name}</NativeSelectOption>)}</NativeSelect>
     <NativeSelect aria-label="Payer" value={current.get("payer_user_id") ?? ""} onChange={(event) => set("payer_user_id", event.target.value)}><NativeSelectOption value="">All payers</NativeSelectOption>{participants.map((participant) => <NativeSelectOption key={participant.userId} value={participant.userId}>{participant.user?.name ?? participant.user?.email ?? "Participant"}</NativeSelectOption>)}</NativeSelect>

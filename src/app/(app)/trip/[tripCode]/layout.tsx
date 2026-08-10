@@ -34,14 +34,10 @@ export default async function TripLayout({
 
   return (
     <TripProvider trip={trip} participants={participants}>
-      <div className="min-h-dvh md:flex">
+      <TripMobileNav tripCode={tripCode} />
+      <div className="flex gap-8">
         <TripSidebarNav tripCode={tripCode} trip={trip} participants={participants} />
-        <div className="min-w-0 flex-1">
-          <TripMobileNav tripCode={tripCode} trip={trip} />
-          <main className="mx-auto w-full max-w-[1080px] px-5 py-8 md:px-12 md:py-10">
-            {children}
-          </main>
-        </div>
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
     </TripProvider>
   );

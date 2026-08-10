@@ -7,4 +7,15 @@ function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
   )
 }
 
-export { Spinner }
+// A full-section placeholder for queries that are still loading, used instead of bare text so
+// every async view in the app gets the same visual treatment.
+function LoadingState({ label = "Loading…", className }: { label?: string; className?: string }) {
+  return (
+    <div className={cn("flex items-center gap-2 py-10 text-sm text-muted-foreground", className)}>
+      <Spinner />
+      {label}
+    </div>
+  )
+}
+
+export { Spinner, LoadingState }

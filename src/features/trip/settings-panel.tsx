@@ -21,13 +21,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { LoadingState, Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import {
   createExpenseCategory,
   deleteExpenseCategory,
   listExpenseCategories,
 } from "@/features/expense/category-api"
-import { ExchangeRateManager } from "@/features/finance/exchange-rate-manager"
+import { TripCurrenciesManager } from "@/features/finance/trip-currencies-manager"
 import {
   participantBankSchema,
   participantUpdateSchema,
@@ -114,7 +115,7 @@ function BankEditor({
       />
       <Input aria-label="Account holder" placeholder="Account holder" {...form.register("accountHolder")} />
       <div className="flex gap-2">
-        <Button type="submit" disabled={mutation.isPending}>Save</Button>
+        <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? <Spinner /> : "Save"}</Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
       </div>
       {form.formState.errors.accountNumber ? (
@@ -138,18 +139,18 @@ const MENU_ITEMS: Array<{ id: Section; label: string; description: string; icon:
 
 function SectionHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div>
-      <button type="button" className="mb-5 inline-flex items-center gap-1 text-[13px] font-semibold text-primary" onClick={onBack}>
-        <ArrowLeft className="size-3.5" aria-hidden="true" /> Settings
-      </button>
-      <h1 className="font-heading text-[22px] font-extrabold">{title}</h1>
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="icon-sm" aria-label="Back to settings" onClick={onBack}>
+        <ArrowLeft className="size-4" aria-hidden="true" />
+      </Button>
+      <h3 className="font-heading text-lg font-semibold">{title}</h3>
     </div>
   )
 }
 
 function SettingsMenu({ onSelect }: { onSelect: (section: Section) => void }) {
   return (
-    <div className="flex max-w-[520px] flex-col gap-2.5">
+    <div className="grid gap-3 sm:grid-cols-2">
       {MENU_ITEMS.map((item) => {
         const Icon = item.icon
         return (
@@ -157,10 +158,15 @@ function SettingsMenu({ onSelect }: { onSelect: (section: Section) => void }) {
             key={item.id}
             type="button"
             onClick={() => onSelect(item.id)}
-            className="flex items-center justify-between rounded-[14px] border bg-white px-5 py-[18px] text-left transition-shadow hover:shadow-[0_6px_18px_oklch(0.2_0.02_60/0.07)]"
+            className="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/30"
           >
-            <span className="flex min-w-0 items-center gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground"><Icon className="size-4.5" aria-hidden="true" /></span><span><span className="block text-sm font-extrabold">{item.label}</span><span className="mt-1 block text-[13px] text-muted-foreground">{item.description}</span></span></span>
-            <span className="ml-3 text-lg text-muted-foreground">›</span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+              <Icon className="size-4.5" aria-hidden="true" />
+            </span>
+            <span>
+              <span className="block font-medium">{item.label}</span>
+              <span className="block text-sm text-muted-foreground">{item.description}</span>
+            </span>
           </button>
         )
       })}
@@ -188,7 +194,7 @@ function CategoriesSection({ tripCode, canEdit, onBack }: { tripCode: string; ca
       <SectionHeader title="Categories" onBack={onBack} />
       <Card>
         <CardContent className="space-y-3 pt-6">
-          <div className="flex flex-wrap gap-2">
+          {categories.isLoading ? <LoadingState label="Loading categories…" /> : <div className="flex flex-wrap gap-2">
             {(categories.data ?? []).map((category) => (
               <span key={category.id} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm font-medium", categoryColorFor(category.name))}>
                 {category.name}
@@ -199,11 +205,11 @@ function CategoriesSection({ tripCode, canEdit, onBack }: { tripCode: string; ca
                 ) : null}
               </span>
             ))}
-          </div>
+          </div>}
           {canEdit ? (
             <form className="flex gap-2" method="post" onSubmit={(event) => { event.preventDefault(); if (name.trim()) create.mutate(name.trim()) }}>
               <Input placeholder="New category name" value={name} onChange={(event) => setName(event.target.value)} maxLength={50} />
-              <Button type="submit" disabled={create.isPending || !name.trim()}>Add</Button>
+              <Button type="submit" disabled={create.isPending || !name.trim()}>{create.isPending ? <Spinner /> : "Add"}</Button>
             </form>
           ) : null}
         </CardContent>
@@ -323,7 +329,7 @@ function MembersSection({
           <CardContent className="space-y-3">
             <div className="flex gap-2">
               <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
-              <Button disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>Invite</Button>
+              <Button disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>{invitationMutation.isPending ? <Spinner /> : "Invite"}</Button>
             </div>
             {link ? (
               <>
@@ -337,7 +343,7 @@ function MembersSection({
                 {pending.map((invitation) => (
                   <div key={invitation.id} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{invitation.email}</span>
-                    <Button size="sm" variant="ghost" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>Revoke</Button>
+                    <Button size="sm" variant="ghost" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>{revokeMutation.isPending ? <Spinner /> : "Revoke"}</Button>
                   </div>
                 ))}
               </div>
@@ -397,41 +403,21 @@ function PreferencesSection({
 function CurrenciesSection({
   trip,
   updateBaseCurrency,
-  disabled,
   onBack,
 }: {
   trip: Trip
   updateBaseCurrency: (value: string) => void
-  disabled: boolean
   onBack: () => void
 }) {
-  const [baseCurrency, setBaseCurrency] = useState(trip.baseCurrency)
   return (
     <div className="space-y-4">
       <SectionHeader title="Currencies & exchange rates" onBack={onBack} />
-      <Card>
-        <CardHeader><CardTitle className="text-base">Base currency</CardTitle></CardHeader>
-        <CardContent className="flex gap-2">
-          <Input
-            maxLength={3}
-            className="w-24 uppercase"
-            value={baseCurrency}
-            disabled={!trip.canEditSettings || disabled}
-            onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
-          />
-          {trip.canEditSettings ? (
-            <Button size="sm" disabled={disabled || baseCurrency === trip.baseCurrency} onClick={() => updateBaseCurrency(baseCurrency)}>
-              Save
-            </Button>
-          ) : null}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle className="text-base">Exchange rates</CardTitle></CardHeader>
-        <CardContent>
-          <ExchangeRateManager tripCode={trip.code} baseCurrency={trip.baseCurrency} canEdit={trip.canEditSettings} />
-        </CardContent>
-      </Card>
+      <TripCurrenciesManager
+        tripCode={trip.code}
+        baseCurrency={trip.baseCurrency}
+        canEdit={trip.canEditSettings}
+        onBaseCurrencyChange={updateBaseCurrency}
+      />
     </div>
   )
 }
@@ -511,16 +497,15 @@ export function SettingsPanel() {
 
   return (
     <div className="space-y-6">
-      {section === "menu" ? <h1 className="font-heading text-[26px] font-extrabold">Settings</h1> : null}
-      {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
-      {section === "menu" ? <Card className="max-w-[520px] rounded-[14px]">
+      <Card>
         <CardHeader><CardTitle>Share trip</CardTitle></CardHeader>
         <CardContent className="flex gap-2">
           <Input readOnly value={trip.code} />
           <Button onClick={() => navigator.clipboard.writeText(`${location.origin}/trip/${trip.code}`)}>Copy link</Button>
         </CardContent>
-      </Card> : null}
-      {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} disabled={settingsMutation.isPending} onBack={() => setSection("menu")} /> : null}
+      </Card>
+      {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
+      {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} onBack={() => setSection("menu")} /> : null}
       {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} onBack={() => setSection("menu")} /> : null}
       {section === "roles" ? <RolesSection onBack={() => setSection("menu")} /> : null}
       {section === "members" ? <MembersSection trip={trip} participants={participantsQuery.data} onBack={() => setSection("menu")} /> : null}

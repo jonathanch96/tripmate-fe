@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PayerEditor } from "@/features/expense/components/payer-editor"
@@ -56,19 +57,25 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
   const valid = expenseCreateSchema.safeParse(payload).success
   function amountChanged(value: string) { setAmount(value); if (payers.length === 1) setPayers([{ ...payers[0], amount: value }]) }
   return <Dialog open={open} onOpenChange={setOpen}>
-    {!expense ? <DialogTrigger render={<Button className="font-bold" />}><Plus />Add expense</DialogTrigger> : null}
-    <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[680px]">
+    {!expense ? <DialogTrigger render={<Button />}>Add expense</DialogTrigger> : null}
+    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
       <DialogHeader><DialogTitle>{expense ? "Edit expense" : "Add expense"}</DialogTitle><DialogDescription>One bill can have several payers and several people sharing it.</DialogDescription></DialogHeader>
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "manual" | "receipt")}>
         {!expense ? <TabsList><TabsTrigger value="manual">Enter manually</TabsTrigger><TabsTrigger value="receipt">Scan receipt</TabsTrigger></TabsList> : null}
         <TabsContent value="manual"><div className="grid gap-4 pt-2">
-        <label>Description<Input value={description} onChange={(event) => setDescription(event.target.value)} /></label>
-        <div className="grid gap-3 md:grid-cols-2"><label>Date<Input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><label>Category<NativeSelect className="w-full" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><NativeSelectOption value="">Uncategorized</NativeSelectOption>{(categories.data ?? []).map((category) => <NativeSelectOption key={category.id} value={category.id}>{category.name}</NativeSelectOption>)}</NativeSelect></label></div>
-        <div className="grid gap-3 md:grid-cols-2"><label>Amount<Input inputMode="decimal" value={amount} onChange={(event) => amountChanged(event.target.value)} /></label><label>Currency<NativeSelect className="w-full" value={currency} onChange={(event) => setCurrency(event.target.value)}><NativeSelectOption value={trip.baseCurrency}>{trip.baseCurrency}</NativeSelectOption>{trip.settings.multiCurrencyEnabled ? ["PHP", "IDR", "USD", "EUR"].filter((value) => value !== trip.baseCurrency).map((value) => <NativeSelectOption value={value} key={value}>{value}</NativeSelectOption>) : null}</NativeSelect></label></div>
+        <div className="space-y-1.5"><Label htmlFor="expense-description">Description</Label><Input id="expense-description" placeholder="Dinner at Aria" value={description} onChange={(event) => setDescription(event.target.value)} /></div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1.5"><Label htmlFor="expense-date">Date</Label><Input id="expense-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
+          <div className="space-y-1.5"><Label htmlFor="expense-category">Category</Label><NativeSelect id="expense-category" className="w-full" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><NativeSelectOption value="">Uncategorized</NativeSelectOption>{(categories.data ?? []).map((category) => <NativeSelectOption key={category.id} value={category.id}>{category.name}</NativeSelectOption>)}</NativeSelect></div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1.5"><Label htmlFor="expense-amount">Amount</Label><Input id="expense-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => amountChanged(event.target.value)} /></div>
+          <div className="space-y-1.5"><Label htmlFor="expense-currency">Currency</Label><NativeSelect id="expense-currency" className="w-full" value={currency} onChange={(event) => setCurrency(event.target.value)}><NativeSelectOption value={trip.baseCurrency}>{trip.baseCurrency}</NativeSelectOption>{trip.settings.multiCurrencyEnabled ? ["PHP", "IDR", "USD", "EUR"].filter((value) => value !== trip.baseCurrency).map((value) => <NativeSelectOption value={value} key={value}>{value}</NativeSelectOption>) : null}</NativeSelect></div>
+        </div>
         <PayerEditor amount={amount} rows={payers} participants={participants} onChange={setPayers} />
         <SplitEditor amount={amount} currency={currency} type={splitType} selected={selected} manual={manual} participants={participants} onType={setSplitType} onSelected={setSelected} onManual={setManual} />
-        <label>Note<Textarea value={note} onChange={(event) => setNote(event.target.value)} /></label>
-      </div><DialogFooter className="mt-4"><Button disabled={!valid || pending} onClick={() => { onSubmit(expenseCreateSchema.parse(payload)); setOpen(false) }}>{pending ? "Saving…" : expense ? "Save changes" : "Save expense"}</Button></DialogFooter></TabsContent>
+        <div className="space-y-1.5"><Label htmlFor="expense-note">Note</Label><Textarea id="expense-note" rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></div>
+      </div><DialogFooter className="mt-4"><Button disabled={!valid || pending} onClick={() => { onSubmit(expenseCreateSchema.parse(payload)); setOpen(false) }}>{pending ? <><Spinner className="mr-1.5" />Saving…</> : expense ? "Save changes" : "Save expense"}</Button></DialogFooter></TabsContent>
         {!expense ? <TabsContent value="receipt"><ReceiptWorkflow trip={trip} participants={participants} onConverted={() => { setOpen(false); onReceiptConverted?.() }} onManual={(defaults) => { setDescription(defaults.description); setAmount(defaults.amount); setCurrency(defaults.currency); setDate(defaults.expenseDate); if (payers.length === 1) setPayers([{ ...payers[0], amount: defaults.amount }]); setActiveTab("manual") }} /></TabsContent> : null}
       </Tabs>
     </DialogContent>

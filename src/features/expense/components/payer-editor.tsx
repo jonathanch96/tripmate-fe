@@ -14,24 +14,26 @@ export function PayerEditor({ amount, rows, participants, onChange }: { amount: 
   const paid = rows.reduce((sum, row) => sum.plus(row.amount || 0), new Decimal(0))
   const remaining = new Decimal(amount || 0).minus(paid)
   return (
-    <fieldset className="space-y-2">
-      <legend className="font-medium">Who paid?</legend>
+    <fieldset className="space-y-2.5">
+      <div className="flex items-baseline justify-between">
+        <legend className="text-sm font-semibold">Who paid?</legend>
+        <span className={cn("text-xs font-semibold", remaining.equals(0) ? "text-success" : "text-amber-600 dark:text-amber-400")}>Remaining: {remaining.toFixed(2)}</span>
+      </div>
       {rows.map((row, index) => (
-        <div className="grid grid-cols-[1fr_10rem_auto] items-center gap-2" key={`${row.userId}-${index}`}>
-          <NativeSelect aria-label={`Payer ${index + 1}`} value={row.userId} onChange={(event) => onChange(rows.map((item, i) => i === index ? { ...item, userId: event.target.value } : item))}>
+        <div className="flex gap-2" key={`${row.userId}-${index}`}>
+          <NativeSelect className="flex-[2]" aria-label={`Payer ${index + 1}`} value={row.userId} onChange={(event) => onChange(rows.map((item, i) => i === index ? { ...item, userId: event.target.value } : item))}>
             <NativeSelectOption value="">Choose payer</NativeSelectOption>
             {participants.map((participant) => <NativeSelectOption key={participant.userId} value={participant.userId}>{participant.user?.name ?? participant.user?.email ?? "Participant"}</NativeSelectOption>)}
           </NativeSelect>
-          <Input aria-label={`Payer ${index + 1} amount`} inputMode="decimal" value={row.amount} onChange={(event) => onChange(rows.map((item, i) => i === index ? { ...item, amount: event.target.value } : item))} />
-          <Button type="button" variant="ghost" size="icon" aria-label={`Remove payer ${index + 1}`} onClick={() => onChange(rows.filter((_, i) => i !== index))}>
-            <X className="size-4" aria-hidden="true" />
-          </Button>
+          <Input className="flex-1" aria-label={`Payer ${index + 1} amount`} inputMode="decimal" placeholder="0.00" value={row.amount} onChange={(event) => onChange(rows.map((item, i) => i === index ? { ...item, amount: event.target.value } : item))} />
+          {rows.length > 1 ? (
+            <Button type="button" variant="outline" size="sm" aria-label={`Remove payer ${index + 1}`} onClick={() => onChange(rows.filter((_, i) => i !== index))}>
+              <X className="size-4" aria-hidden="true" />
+            </Button>
+          ) : null}
         </div>
       ))}
-      <div className="flex items-center justify-between text-sm">
-        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { userId: "", amount: "0" }])}>+ Add payer</Button>
-        <span className={cn("font-medium", remaining.equals(0) ? "text-success" : "text-amber-600 dark:text-amber-400")}>Remaining: {remaining.toFixed(2)}</span>
-      </div>
+      <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { userId: "", amount: "" }])}>+ Add payer</Button>
     </fieldset>
   )
 }

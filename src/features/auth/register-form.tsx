@@ -86,6 +86,20 @@ export function RegisterForm() {
           {form.formState.isSubmitting ? "Creating account…" : "Create account"}
         </Button>
       </form>
+      <div className="my-4 flex items-center gap-2">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">OR</span>
+        <Separator className="flex-1" />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full gap-2"
+        onClick={() => signIn("google", { callbackUrl: "/trips" })}
+      >
+        <GoogleIcon className="size-4" />
+        Continue with Google
+      </Button>
     </Form>
   )
 }

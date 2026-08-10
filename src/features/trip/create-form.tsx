@@ -10,9 +10,8 @@ import { Label } from "@/components/ui/label";
 import { tripSchema, type TripInput } from "@/features/trip/schema";
 import type { Trip } from "@/features/trip/types";
 import { apiFetch } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
 
-export function CreateTripForm({ embedded = false }: { embedded?: boolean }) {
+export function CreateTripForm() {
   const router = useRouter();
   const form = useForm<TripInput>({
     resolver: zodResolver(tripSchema),
@@ -52,7 +51,7 @@ export function CreateTripForm({ embedded = false }: { embedded?: boolean }) {
   ] as const;
 
   return (
-    <form className={cn("max-w-xl space-y-5", !embedded && "rounded-2xl border bg-white p-6")} method="post" onSubmit={form.handleSubmit(submit)}>
+    <form className="max-w-xl space-y-5" method="post" onSubmit={form.handleSubmit(submit)}>
       <div className="space-y-1.5">
         <Label htmlFor="trip-name">Trip name</Label>
         <Input id="trip-name" {...form.register("name")} />
@@ -97,7 +96,7 @@ export function CreateTripForm({ embedded = false }: { embedded?: boolean }) {
           {form.formState.errors.root.message}
         </p>
       ) : null}
-      <Button className="font-bold" type="submit" disabled={form.formState.isSubmitting}>
+      <Button type="submit" disabled={form.formState.isSubmitting}>
         Create trip
       </Button>
     </form>
