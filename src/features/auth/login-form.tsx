@@ -2,19 +2,27 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 
+import { GoogleIcon } from "@/components/icons/google"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
 import { authErrorCopy } from "@/features/auth/error-copy"
 import { loginSchema, type LoginInput } from "@/features/auth/schema"
 
 export function LoginForm({ nextPath }: { nextPath: string }) {
   const router = useRouter()
-  const [error, setError] = useState<string>()
+  const searchParams = useSearchParams()
+  // A Google sign-in failure redirects back here with ?error=... instead of resolving inline the
+  // way the credentials form's signIn() promise does, so the initial error comes from the URL.
+  const [error, setError] = useState<string | undefined>(() => {
+    const code = searchParams.get("error")
+    return code ? authErrorCopy("login", code) : undefined
+  })
   const form = useForm<LoginInput>({ resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" } })
 
   async function submit(values: LoginInput) {
@@ -50,6 +58,20 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
         </Button>
       </form>
+      <div className="my-4 flex items-center gap-2">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">OR</span>
+        <Separator className="flex-1" />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full gap-2"
+        onClick={() => signIn("google", { callbackUrl: nextPath })}
+      >
+        <GoogleIcon className="size-4" />
+        Continue with Google
+      </Button>
     </Form>
   )
 }
