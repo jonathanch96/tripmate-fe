@@ -27,7 +27,7 @@ import {
   deleteExpenseCategory,
   listExpenseCategories,
 } from "@/features/expense/category-api"
-import { ExchangeRateManager } from "@/features/finance/exchange-rate-manager"
+import { TripCurrenciesManager } from "@/features/finance/trip-currencies-manager"
 import {
   participantBankSchema,
   participantUpdateSchema,
@@ -402,41 +402,21 @@ function PreferencesSection({
 function CurrenciesSection({
   trip,
   updateBaseCurrency,
-  disabled,
   onBack,
 }: {
   trip: Trip
   updateBaseCurrency: (value: string) => void
-  disabled: boolean
   onBack: () => void
 }) {
-  const [baseCurrency, setBaseCurrency] = useState(trip.baseCurrency)
   return (
     <div className="space-y-4">
       <SectionHeader title="Currencies & exchange rates" onBack={onBack} />
-      <Card>
-        <CardHeader><CardTitle className="text-base">Base currency</CardTitle></CardHeader>
-        <CardContent className="flex gap-2">
-          <Input
-            maxLength={3}
-            className="w-24 uppercase"
-            value={baseCurrency}
-            disabled={!trip.canEditSettings || disabled}
-            onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
-          />
-          {trip.canEditSettings ? (
-            <Button size="sm" disabled={disabled || baseCurrency === trip.baseCurrency} onClick={() => updateBaseCurrency(baseCurrency)}>
-              Save
-            </Button>
-          ) : null}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle className="text-base">Exchange rates</CardTitle></CardHeader>
-        <CardContent>
-          <ExchangeRateManager tripCode={trip.code} baseCurrency={trip.baseCurrency} canEdit={trip.canEditSettings} />
-        </CardContent>
-      </Card>
+      <TripCurrenciesManager
+        tripCode={trip.code}
+        baseCurrency={trip.baseCurrency}
+        canEdit={trip.canEditSettings}
+        onBaseCurrencyChange={updateBaseCurrency}
+      />
     </div>
   )
 }
@@ -524,7 +504,7 @@ export function SettingsPanel() {
         </CardContent>
       </Card>
       {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
-      {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} disabled={settingsMutation.isPending} onBack={() => setSection("menu")} /> : null}
+      {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} onBack={() => setSection("menu")} /> : null}
       {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} onBack={() => setSection("menu")} /> : null}
       {section === "roles" ? <RolesSection onBack={() => setSection("menu")} /> : null}
       {section === "members" ? <MembersSection trip={trip} participants={participantsQuery.data} onBack={() => setSection("menu")} /> : null}
