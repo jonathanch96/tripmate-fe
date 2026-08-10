@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { categoryColorFor } from "@/lib/category-colors"
 import { cn } from "@/lib/utils"
@@ -31,7 +32,7 @@ export function ExpenseTable({ expenses, categories, pendingAction, onEdit, onDe
         <TableCell className="text-sm text-muted-foreground">{SPLIT_LABEL[expense.splitType]}</TableCell>
         <TableCell><Badge variant={STATUS_VARIANT[expense.status]}>{expense.status}</Badge></TableCell>
         <TableCell className="text-right font-medium tabular-nums">{expense.currency} {expense.amount}</TableCell>
-        <TableCell><div className="flex gap-1">{expense.canEdit ? <Button size="sm" variant="outline" disabled={pendingAction} onClick={() => onEdit(expense)}>Edit</Button> : null}{expense.canApprove ? <Button size="sm" disabled={pendingAction} onClick={() => onApprove(expense)}>Approve</Button> : null}{expense.canReject ? <Button size="sm" variant="outline" disabled={pendingAction} onClick={() => onReject(expense)}>Reject</Button> : null}{expense.canDelete ? <Button size="sm" variant="destructive" disabled={pendingAction} onClick={() => onDelete(expense)}>Delete</Button> : null}</div></TableCell>
+        <TableCell><div className="flex gap-1">{expense.canEdit ? <Button size="sm" variant="outline" disabled={pendingAction} onClick={() => onEdit(expense)}>Edit</Button> : null}{expense.canApprove ? <Button size="sm" disabled={pendingAction} onClick={() => onApprove(expense)}>{pendingAction ? <Spinner /> : "Approve"}</Button> : null}{expense.canReject ? <Button size="sm" variant="outline" disabled={pendingAction} onClick={() => onReject(expense)}>Reject</Button> : null}{expense.canDelete ? <Button size="sm" variant="destructive" disabled={pendingAction} onClick={() => onDelete(expense)}>{pendingAction ? <Spinner /> : "Delete"}</Button> : null}</div></TableCell>
       </TableRow>
     })}
   </TableBody></Table>

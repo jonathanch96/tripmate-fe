@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { LoadingState, Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import {
   createExpenseCategory,
@@ -114,7 +115,7 @@ function BankEditor({
       />
       <Input aria-label="Account holder" placeholder="Account holder" {...form.register("accountHolder")} />
       <div className="flex gap-2">
-        <Button type="submit" disabled={mutation.isPending}>Save</Button>
+        <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? <Spinner /> : "Save"}</Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
       </div>
       {form.formState.errors.accountNumber ? (
@@ -193,7 +194,7 @@ function CategoriesSection({ tripCode, canEdit, onBack }: { tripCode: string; ca
       <SectionHeader title="Categories" onBack={onBack} />
       <Card>
         <CardContent className="space-y-3 pt-6">
-          <div className="flex flex-wrap gap-2">
+          {categories.isLoading ? <LoadingState label="Loading categories…" /> : <div className="flex flex-wrap gap-2">
             {(categories.data ?? []).map((category) => (
               <span key={category.id} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm font-medium", categoryColorFor(category.name))}>
                 {category.name}
@@ -204,11 +205,11 @@ function CategoriesSection({ tripCode, canEdit, onBack }: { tripCode: string; ca
                 ) : null}
               </span>
             ))}
-          </div>
+          </div>}
           {canEdit ? (
             <form className="flex gap-2" method="post" onSubmit={(event) => { event.preventDefault(); if (name.trim()) create.mutate(name.trim()) }}>
               <Input placeholder="New category name" value={name} onChange={(event) => setName(event.target.value)} maxLength={50} />
-              <Button type="submit" disabled={create.isPending || !name.trim()}>Add</Button>
+              <Button type="submit" disabled={create.isPending || !name.trim()}>{create.isPending ? <Spinner /> : "Add"}</Button>
             </form>
           ) : null}
         </CardContent>
@@ -328,7 +329,7 @@ function MembersSection({
           <CardContent className="space-y-3">
             <div className="flex gap-2">
               <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
-              <Button disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>Invite</Button>
+              <Button disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>{invitationMutation.isPending ? <Spinner /> : "Invite"}</Button>
             </div>
             {link ? (
               <>
@@ -342,7 +343,7 @@ function MembersSection({
                 {pending.map((invitation) => (
                   <div key={invitation.id} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{invitation.email}</span>
-                    <Button size="sm" variant="ghost" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>Revoke</Button>
+                    <Button size="sm" variant="ghost" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>{revokeMutation.isPending ? <Spinner /> : "Revoke"}</Button>
                   </div>
                 ))}
               </div>

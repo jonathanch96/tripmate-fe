@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { LoadingState, Spinner } from "@/components/ui/spinner"
 import type { Invitation, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
 import { qk } from "@/lib/query-keys"
@@ -50,14 +51,16 @@ export default function TripsPage() {
                   disabled={accept.isPending}
                   onClick={() => accept.mutate(invitation.token)}
                 >
-                  Accept
+                  {accept.isPending ? <Spinner /> : "Accept"}
                 </Button>
               </div>
             ))}
           </CardContent>
         </Card>
       ) : null}
-      {trips.data?.length ? (
+      {trips.isLoading ? (
+        <LoadingState label="Loading your trips…" className="justify-center" />
+      ) : trips.data?.length ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {trips.data.map((trip) => (
             <Link key={trip.id} href={`/trip/${trip.code}`} className="block">

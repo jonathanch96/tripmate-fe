@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { NativeSelect } from "@/components/ui/native-select"
+import { LoadingState, Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import type { BalanceResult, Settlement, Transfer } from "@/features/finance/types"
@@ -61,13 +62,13 @@ export function SettlementsPage() {
           <label className="space-y-1 text-sm">Note<Input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
           {draft.method === "bank_transfer" ? <div className="sm:col-span-2 rounded-lg bg-muted p-3 text-sm">Recipient account: {recipient?.bankInfo ? `${recipient.bankInfo.bankName} · ${recipient.bankInfo.accountNumber} · ${recipient.bankInfo.accountHolder}` : "No bank details saved"}</div> : null}
           {formError ? <p role="alert" className="sm:col-span-2 text-sm text-destructive">{formError}</p> : null}
-          <DialogFooter className="sm:col-span-2"><Button disabled={create.isPending} type="submit">{create.isPending ? "Recording…" : "Record settlement"}</Button></DialogFooter>
+          <DialogFooter className="sm:col-span-2"><Button disabled={create.isPending} type="submit">{create.isPending ? <><Spinner className="mr-1.5" />Recording…</> : "Record settlement"}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   </div>
-    <Card><CardHeader><CardTitle>Outstanding debts</CardTitle></CardHeader><CardContent className="space-y-3">{balances.data?.debts.length ? balances.data.debts.map((debt, i) => <div key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"><span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{debt.currency} {debt.amount}</strong></span><Button size="sm" onClick={() => prefill(debt)}>Settle this</Button></div>) : <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">No outstanding debts.</div>}</CardContent></Card>
-    <Card><CardHeader><CardTitle>History</CardTitle></CardHeader><CardContent className="space-y-3">{actionError ? <p role="alert" className="text-sm text-destructive">{actionError}</p> : null}{history.data?.length ? <Table>
+    <Card><CardHeader><CardTitle>Outstanding debts</CardTitle></CardHeader><CardContent className="space-y-3">{balances.isLoading ? <LoadingState label="Loading debts…" /> : balances.data?.debts.length ? balances.data.debts.map((debt, i) => <div key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"><span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{debt.currency} {debt.amount}</strong></span><Button size="sm" onClick={() => prefill(debt)}>Settle this</Button></div>) : <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">No outstanding debts.</div>}</CardContent></Card>
+    <Card><CardHeader><CardTitle>History</CardTitle></CardHeader><CardContent className="space-y-3">{actionError ? <p role="alert" className="text-sm text-destructive">{actionError}</p> : null}{history.isLoading ? <LoadingState label="Loading settlements…" /> : history.data?.length ? <Table>
       <TableHeader><TableRow><TableHead>From</TableHead><TableHead>To</TableHead><TableHead>Method</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
       <TableBody>{history.data.map((row) => <TableRow key={row.id}>
         <TableCell>{row.fromUser?.name ?? names.get(row.fromUserId)}</TableCell>
@@ -75,7 +76,7 @@ export function SettlementsPage() {
         <TableCell>{row.method === "bank_transfer" ? "Bank transfer" : "Cash"}</TableCell>
         <TableCell><Badge variant={row.status === "pending" ? "secondary" : row.status === "rejected" ? "destructive" : "outline"}>{row.status}</Badge></TableCell>
         <TableCell className="text-right font-medium tabular-nums">{row.currency} {row.amount}</TableCell>
-        <TableCell>{trip.canEditSettings && row.status === "pending" ? <div className="flex gap-1"><Button size="sm" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>Approve</Button><Button size="sm" variant="outline" disabled={action.isPending} onClick={() => { setRejecting(row); setReason(""); setRejectError("") }}>Reject</Button><Button size="sm" variant="destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>Delete</Button></div> : null}</TableCell>
+        <TableCell>{trip.canEditSettings && row.status === "pending" ? <div className="flex gap-1"><Button size="sm" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>{action.isPending ? <Spinner /> : "Approve"}</Button><Button size="sm" variant="outline" disabled={action.isPending} onClick={() => { setRejecting(row); setReason(""); setRejectError("") }}>Reject</Button><Button size="sm" variant="destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>{action.isPending ? <Spinner /> : "Delete"}</Button></div> : null}</TableCell>
       </TableRow>)}</TableBody>
     </Table> : <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">No settlements recorded.</div>}</CardContent></Card>
     <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectError("") } }}>
@@ -83,7 +84,7 @@ export function SettlementsPage() {
         <form className="space-y-3" method="post" onSubmit={submitRejection}>
           <label className="space-y-1 text-sm">Reason<Textarea required value={reason} onChange={(e) => { setReason(e.target.value); setRejectError("") }} placeholder="Tell the payer why this was rejected" /></label>
           {rejectError ? <p role="alert" className="text-sm text-destructive">{rejectError}</p> : null}
-          <DialogFooter><Button type="button" variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button type="submit" variant="destructive" disabled={action.isPending}>{action.isPending ? "Rejecting…" : "Reject settlement"}</Button></DialogFooter>
+          <DialogFooter><Button type="button" variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button type="submit" variant="destructive" disabled={action.isPending}>{action.isPending ? <><Spinner className="mr-1.5" />Rejecting…</> : "Reject settlement"}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
