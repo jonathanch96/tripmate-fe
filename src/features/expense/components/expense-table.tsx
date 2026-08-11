@@ -16,8 +16,8 @@ const STATUS_VARIANT: Record<Expense["status"], "outline" | "secondary" | "destr
   pending: "secondary", approved: "outline", rejected: "destructive",
 }
 
-export function ExpenseTable({ expenses, categories, pendingAction, onEdit, onDelete, onApprove, onReject }: { expenses: Expense[]; categories: ExpenseCategory[]; pendingAction: boolean; onEdit: (expense: Expense) => void; onDelete: (expense: Expense) => void; onApprove: (expense: Expense) => void; onReject: (expense: Expense) => void }) {
-  if (!expenses.length) return <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">No expenses match these filters.</div>
+export function ExpenseTable({ expenses, categories, pendingAction, hasAnyExpenses = true, onEdit, onDelete, onApprove, onReject }: { expenses: Expense[]; categories: ExpenseCategory[]; pendingAction: boolean; hasAnyExpenses?: boolean; onEdit: (expense: Expense) => void; onDelete: (expense: Expense) => void; onApprove: (expense: Expense) => void; onReject: (expense: Expense) => void }) {
+  if (!expenses.length) return <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">{hasAnyExpenses ? "No expenses match these filters." : "No expenses yet. Add your first bill to get started."}</div>
   const categoryById = new Map(categories.map((category) => [category.id, category.name]))
   return <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Description</TableHead><TableHead>Category</TableHead><TableHead>Split</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>
     {expenses.map((expense) => {
