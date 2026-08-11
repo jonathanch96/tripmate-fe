@@ -72,20 +72,6 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
         </Button>
       </form>
-      <div className="my-4 flex items-center gap-2">
-        <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground">OR</span>
-        <Separator className="flex-1" />
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full gap-2"
-        onClick={() => signIn("google", { callbackUrl: nextPath })}
-      >
-        <GoogleIcon className="size-4" />
-        Continue with Google
-      </Button>
     </Form>
   )
 }
