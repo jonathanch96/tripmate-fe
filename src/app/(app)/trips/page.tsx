@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
 import { toast } from "sonner"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import type { Invitation, Trip } from "@/features/trip/types"
@@ -37,7 +37,7 @@ export default function TripsPage() {
     <section>
       <div className="mb-8 flex items-center justify-between">
         <h1 className="font-heading text-3xl font-semibold">My trips</h1>
-        <Button render={<Link href="/trip/create" />}>Create trip</Button>
+        <Link href="/trip/create" className={buttonVariants()}>Create trip</Link>
       </div>
       {invitations.data?.length ? (
         <Card className="mb-6 border-primary/20 bg-primary/5">
