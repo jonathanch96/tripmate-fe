@@ -3,27 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import {
-  FileCheck2,
-  HandCoins,
-  LayoutDashboard,
-  LogOut,
-  Receipt,
-  Settings,
-} from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors";
 import type { Participant, Trip } from "@/features/trip/types";
 
 const NAV_ITEMS = [
-  { href: "", label: "Overview", icon: LayoutDashboard },
-  { href: "/expenses", label: "Expenses", icon: Receipt },
-  { href: "/settlements", label: "Settlements", icon: HandCoins },
-  { href: "/final", label: "Final plan", icon: FileCheck2 },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "", label: "Overview" },
+  { href: "/expenses", label: "Expenses" },
+  { href: "/settlements", label: "Settlements" },
+  { href: "/final", label: "Final plan" },
+  { href: "/settings", label: "Settings" },
 ] as const;
 
 const VISIBLE_MEMBERS = 5;
@@ -43,36 +34,35 @@ export function TripSidebarNav({
   const overflow = participants.length - visible.length;
 
   return (
-    <aside className="hidden md:flex md:w-56 md:shrink-0 md:flex-col md:gap-6">
-      <div>
-        <p className="truncate font-heading text-lg font-semibold">{trip.name}</p>
-        <p className="mt-1 inline-flex items-center rounded-full bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-          {tripCode}
-        </p>
-      </div>
+    <aside className="hidden shrink-0 flex-col border-r border-border bg-white p-[18px] pt-6 md:flex md:w-[250px]">
+      <Link href="/trips" className="mb-[22px] text-[13px] font-semibold text-muted-foreground hover:text-foreground">
+        ‹ My trips
+      </Link>
+      <p className="truncate font-heading text-[19px] font-extrabold">{trip.name}</p>
+      <p className="mb-[26px] text-xs text-muted-foreground">
+        {tripCode} · {trip.baseCurrency}
+      </p>
       <nav aria-label="Trip navigation" className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const href = `${base}${item.href}`;
           const active = item.href === "" ? pathname === base : pathname.startsWith(href);
-          const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={href}
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+                "rounded-[9px] px-3 py-2.5 text-sm font-semibold transition-colors",
                 active
-                  ? "bg-accent font-medium text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-[oklch(0.35_0.01_60)] hover:bg-muted"
               )}
             >
-              <Icon className="size-4" aria-hidden="true" />
               {item.label}
             </Link>
           );
         })}
       </nav>
-      <div className="mt-auto flex flex-col gap-3 border-t pt-4">
+      <div className="mt-auto flex flex-col gap-3.5">
         <AvatarGroup>
           {visible.map((participant) => {
             const name = participant.user?.name ?? participant.user?.email ?? "?";
@@ -86,15 +76,13 @@ export function TripSidebarNav({
             <AvatarGroupCount className="size-6 text-xs">+{overflow}</AvatarGroupCount>
           ) : null}
         </AvatarGroup>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start gap-2 text-muted-foreground"
+        <button
+          type="button"
           onClick={() => signOut({ callbackUrl: "/" })}
+          className="w-fit text-[13px] font-semibold text-muted-foreground hover:text-foreground"
         >
-          <LogOut className="size-4" aria-hidden="true" />
           Sign out
-        </Button>
+        </button>
       </div>
     </aside>
   );

@@ -84,27 +84,25 @@ export function TripCurrenciesManager({ tripCode, baseCurrency, canEdit, onBaseC
   if (rates.isLoading) return <LoadingState label="Loading currencies…" />
 
   return (
-    <div className="space-y-3">
-      <div className="divide-y rounded-lg border px-4">
+    <div>
+      <div className="mb-3.5 rounded-[14px] border border-border bg-white px-5">
         {rows.map((row) => (
-          <div key={row.code} className="flex items-center justify-between gap-3 py-3">
-            <span className="text-sm font-semibold">{row.code}</span>
-            <span className="text-sm text-muted-foreground">{row.rateLabel}</span>
+          <div key={row.code} className="flex items-center justify-between gap-3 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
+            <span className="text-sm font-bold">{row.code}</span>
+            <span className="text-[13px] text-muted-foreground">{row.rateLabel}</span>
             {row.isBase ? (
-              <Badge className="bg-success text-success-foreground">Base</Badge>
+              <Badge className="bg-[oklch(0.94_0.03_150)] text-[oklch(0.5_0.16_150)]">Base</Badge>
             ) : canEdit ? (
-              <div className="flex items-center gap-3">
-                <Button type="button" variant="outline" size="sm" onClick={() => onBaseCurrencyChange(row.code)}>Set as base</Button>
-                <Button
+              <div className="flex items-center gap-2.5">
+                <Button type="button" variant="outline" size="sm" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" onClick={() => onBaseCurrencyChange(row.code)}>Set as base</Button>
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive"
+                  className="text-xs font-semibold text-destructive disabled:opacity-50"
                   disabled={removeCurrency.isPending}
                   onClick={() => removeCurrency.mutate(row)}
                 >
                   {removeCurrency.isPending ? <Spinner /> : "Remove"}
-                </Button>
+                </button>
               </div>
             ) : null}
           </div>
@@ -112,16 +110,16 @@ export function TripCurrenciesManager({ tripCode, baseCurrency, canEdit, onBaseC
       </div>
       {canEdit && available.length > 0 ? (
         <div className="space-y-1.5">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             <NativeSelect value={code} onChange={(event) => setNewCode(event.target.value)}>
               {available.map((option) => <NativeSelectOption key={option} value={option}>{option}</NativeSelectOption>)}
             </NativeSelect>
-            <div className="flex overflow-hidden rounded-lg border">
-              <button type="button" className={cn("px-3 py-2 text-xs font-semibold", direction === "direct" ? "bg-primary text-primary-foreground" : "border-r")} onClick={() => setDirection("direct")}>1 {baseCurrency} =</button>
-              <button type="button" className={cn("px-3 py-2 text-xs font-semibold", direction === "inverse" ? "bg-primary text-primary-foreground" : "")} onClick={() => setDirection("inverse")}>1 {code} =</button>
+            <div className="flex overflow-hidden rounded-[10px] border border-input">
+              <button type="button" className={cn("px-3 py-2.5 text-xs font-bold", direction === "direct" ? "bg-primary text-primary-foreground" : "border-r border-input")} onClick={() => setDirection("direct")}>1 {baseCurrency} =</button>
+              <button type="button" className={cn("px-3 py-2.5 text-xs font-bold", direction === "inverse" ? "bg-primary text-primary-foreground" : "")} onClick={() => setDirection("inverse")}>1 {code} =</button>
             </div>
-            <Input className="min-w-[8rem] flex-1" inputMode="decimal" placeholder="Rate" value={rateInput} onChange={(event) => setRateInput(event.target.value)} />
-            <Button type="button" variant="outline" disabled={addCurrency.isPending} onClick={submitAddCurrency}>
+            <Input className="min-w-[8rem] flex-1" inputMode="decimal" placeholder={`Rate to ${direction === "direct" ? code : baseCurrency}`} value={rateInput} onChange={(event) => setRateInput(event.target.value)} />
+            <Button type="button" variant="secondary" className="font-bold" disabled={addCurrency.isPending} onClick={submitAddCurrency}>
               {addCurrency.isPending ? <><Spinner className="mr-1.5" />Adding…</> : "Add currency"}
             </Button>
           </div>

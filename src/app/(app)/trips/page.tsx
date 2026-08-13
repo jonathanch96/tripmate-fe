@@ -35,12 +35,15 @@ export default function TripsPage() {
 
   return (
     <section>
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="font-heading text-3xl font-semibold">My trips</h1>
-        <Link href="/trip/create" className={buttonVariants()}>Create trip</Link>
+      <div className="mb-7 flex items-end justify-between">
+        <div>
+          <h1 className="font-heading text-[28px] font-extrabold">My trips</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Pick a trip to see expenses and balances.</p>
+        </div>
+        <Link href="/trip/create" className={buttonVariants({ className: "font-bold" })}>+ Create trip</Link>
       </div>
       {invitations.data?.length ? (
-        <Card className="mb-6 border-primary/20 bg-primary/5">
+        <Card className="mb-6 border-primary/20 bg-accent/40">
           <CardHeader><CardTitle className="text-base">You were invited</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {invitations.data.map((invitation) => (
@@ -61,21 +64,31 @@ export default function TripsPage() {
       {trips.isLoading ? (
         <LoadingState label="Loading your trips…" className="justify-center" />
       ) : trips.data?.length ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
           {trips.data.map((trip) => (
             <Link key={trip.id} href={`/trip/${trip.code}`} className="block">
-              <Card className="h-full transition-colors hover:border-primary/40 hover:bg-accent/30">
-                <CardHeader><CardTitle className="font-heading">{trip.name}</CardTitle></CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {trip.startDate} — {trip.endDate} · {trip.baseCurrency}
-                </CardContent>
+              <Card className="h-full gap-0 rounded-2xl p-6 shadow-none transition-shadow hover:shadow-[0_8px_24px_oklch(0.2_0.02_60_/_0.08)]">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-heading text-lg font-extrabold">{trip.name}</h3>
+                    <span className="text-xs tracking-wide text-muted-foreground">{trip.code}</span>
+                  </div>
+                  <span className="shrink-0 rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                    {trip.baseCurrency}
+                  </span>
+                </div>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {trip.startDate} — {trip.endDate}
+                </p>
               </Card>
             </Link>
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
-          <p>No trips yet. Create one to get started.</p>
+        <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-16 text-center">
+          <p className="mb-1.5 text-[15px] font-bold">No trips yet</p>
+          <p className="mb-4.5 text-[13px] text-muted-foreground">Create your first trip to start tracking shared costs.</p>
+          <Link href="/trip/create" className={buttonVariants({ className: "font-bold" })}>+ Create trip</Link>
         </div>
       )}
     </section>

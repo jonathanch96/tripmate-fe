@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { tripSchema, type TripInput } from "@/features/trip/schema";
 import type { Trip } from "@/features/trip/types";
 import { apiFetch } from "@/lib/api-client";
+import { SUPPORTED_CURRENCIES } from "@/lib/currencies";
 
 export function CreateTripForm() {
   const router = useRouter();
@@ -58,7 +60,11 @@ export function CreateTripForm() {
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="trip-currency">Base currency</Label>
-        <Input id="trip-currency" maxLength={3} className="w-24 uppercase" {...form.register("baseCurrency")} />
+        <NativeSelect id="trip-currency" className="w-32" {...form.register("baseCurrency")}>
+          {SUPPORTED_CURRENCIES.map((code) => (
+            <NativeSelectOption key={code} value={code}>{code}</NativeSelectOption>
+          ))}
+        </NativeSelect>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">

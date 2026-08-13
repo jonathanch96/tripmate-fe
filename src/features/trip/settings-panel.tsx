@@ -6,17 +6,10 @@ import { useSession } from "next-auth/react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import {
-  ArrowLeft,
-  Coins,
-  ShieldCheck,
-  SlidersHorizontal,
-  Tag,
-  Users,
-  X,
-} from "lucide-react"
+import { X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -38,6 +31,7 @@ import {
 } from "@/features/trip/schema"
 import { useTrip } from "@/features/trip/trip-context"
 import type { Invitation, Participant, Trip } from "@/features/trip/types"
+import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { categoryColorFor } from "@/lib/category-colors"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
@@ -129,52 +123,67 @@ function BankEditor({
 
 type Section = "menu" | "currencies" | "categories" | "roles" | "members" | "preferences"
 
-const MENU_ITEMS: Array<{ id: Section; label: string; description: string; icon: typeof Coins }> = [
-  { id: "currencies", label: "Currencies & exchange rates", description: "Base currency and rates between currencies used on this trip.", icon: Coins },
-  { id: "categories", label: "Categories", description: "The categories expenses can be tagged with.", icon: Tag },
-  { id: "roles", label: "Roles & permissions", description: "What owners and members can each do.", icon: ShieldCheck },
-  { id: "members", label: "Members & invites", description: "Who's on this trip, bank details, and pending invites.", icon: Users },
-  { id: "preferences", label: "Trip preferences", description: "Approval requirements and editing rules.", icon: SlidersHorizontal },
+const MENU_ITEMS: Array<{ id: Section; label: string; description: string }> = [
+  { id: "currencies", label: "Currencies & exchange rates", description: "Base currency and rates between currencies used on this trip." },
+  { id: "categories", label: "Categories", description: "The categories expenses can be tagged with." },
+  { id: "roles", label: "Roles & permissions", description: "What owners and members can each do." },
+  { id: "members", label: "Members & invites", description: "Who's on this trip, bank details, and pending invites." },
+  { id: "preferences", label: "Trip preferences", description: "Approval requirements and editing rules." },
 ]
 
-function SectionHeader({ title, onBack }: { title: string; onBack: () => void }) {
+const SECTION_LABELS: Record<Exclude<Section, "menu">, string> = {
+  currencies: "Currencies & exchange rates",
+  categories: "Categories",
+  roles: "Roles & permissions",
+  members: "Members & invites",
+  preferences: "Trip preferences",
+}
+
+function Breadcrumb({ section, onBack }: { section: Section; onBack: () => void }) {
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon-sm" aria-label="Back to settings" onClick={onBack}>
-        <ArrowLeft className="size-4" aria-hidden="true" />
-      </Button>
-      <h3 className="font-heading text-lg font-semibold">{title}</h3>
+    <div className="mb-5 flex items-center gap-1.5 text-[13px]">
+      {section === "menu" ? (
+        <span className="font-bold">Settings</span>
+      ) : (
+        <>
+          <button type="button" onClick={onBack} className="font-semibold text-primary hover:underline">Settings</button>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-bold">{SECTION_LABELS[section]}</span>
+        </>
+      )}
     </div>
   )
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h1 className="mb-5 font-heading text-[22px] font-extrabold">{children}</h1>
 }
 
 function SettingsMenu({ onSelect }: { onSelect: (section: Section) => void }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {MENU_ITEMS.map((item) => {
-        const Icon = item.icon
-        return (
+    <div>
+      <h1 className="mb-6.5 font-heading text-[26px] font-extrabold">Settings</h1>
+      <div className="flex max-w-[520px] flex-col gap-2.5">
+        {MENU_ITEMS.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => onSelect(item.id)}
-            className="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/30"
+            className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-white px-5 py-[18px] text-left transition-shadow hover:shadow-[0_6px_18px_oklch(0.2_0.02_60_/_0.07)]"
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-              <Icon className="size-4.5" aria-hidden="true" />
-            </span>
             <span>
-              <span className="block font-medium">{item.label}</span>
-              <span className="block text-sm text-muted-foreground">{item.description}</span>
+              <span className="mb-1 block text-sm font-extrabold">{item.label}</span>
+              <span className="block text-[13px] text-muted-foreground">{item.description}</span>
             </span>
+            <span className="text-lg text-muted-foreground">›</span>
           </button>
-        )
-      })}
+        ))}
+      </div>
     </div>
   )
 }
 
-function CategoriesSection({ tripCode, canEdit, onBack }: { tripCode: string; canEdit: boolean; onBack: () => void }) {
+function CategoriesSection({ tripCode, canEdit }: { tripCode: string; canEdit: boolean }) {
   const client = useQueryClient()
   const [name, setName] = useState("")
   const categories = useQuery({ queryKey: qk.expenseCategories(tripCode), queryFn: async () => (await listExpenseCategories(tripCode)).data ?? [] })
@@ -190,56 +199,49 @@ function CategoriesSection({ tripCode, canEdit, onBack }: { tripCode: string; ca
     onError: (error) => toast.error(error instanceof ApiError ? error.message : "Could not remove category"),
   })
   return (
-    <div className="space-y-4">
-      <SectionHeader title="Categories" onBack={onBack} />
-      <Card>
-        <CardContent className="space-y-3 pt-6">
-          {categories.isLoading ? <LoadingState label="Loading categories…" /> : <div className="flex flex-wrap gap-2">
-            {(categories.data ?? []).map((category) => (
-              <span key={category.id} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm font-medium", categoryColorFor(category.name))}>
-                {category.name}
-                {category.isDefault ? null : canEdit ? (
-                  <button type="button" aria-label={`Remove ${category.name}`} onClick={() => remove.mutate(category.id)} disabled={remove.isPending}>
-                    <X className="size-3.5" aria-hidden="true" />
-                  </button>
-                ) : null}
-              </span>
-            ))}
-          </div>}
-          {canEdit ? (
-            <form className="flex gap-2" method="post" onSubmit={(event) => { event.preventDefault(); if (name.trim()) create.mutate(name.trim()) }}>
-              <Input placeholder="New category name" value={name} onChange={(event) => setName(event.target.value)} maxLength={50} />
-              <Button type="submit" disabled={create.isPending || !name.trim()}>{create.isPending ? <Spinner /> : "Add"}</Button>
-            </form>
-          ) : null}
-        </CardContent>
-      </Card>
+    <div>
+      <SectionTitle>Categories</SectionTitle>
+      {categories.isLoading ? <LoadingState label="Loading categories…" /> : (
+        <div className="mb-3.5 flex flex-wrap gap-2">
+          {(categories.data ?? []).map((category) => (
+            <span key={category.id} className={cn("flex items-center gap-1.5 rounded-lg py-1.5 pr-1.5 pl-3 text-[13px] font-semibold", categoryColorFor(category.name))}>
+              {category.name}
+              {category.isDefault ? <span className="px-1 text-[10px] text-muted-foreground">default</span> : canEdit ? (
+                <button type="button" aria-label={`Remove ${category.name}`} onClick={() => remove.mutate(category.id)} disabled={remove.isPending} className="px-1 text-destructive">
+                  <X className="size-3.5" aria-hidden="true" />
+                </button>
+              ) : null}
+            </span>
+          ))}
+        </div>
+      )}
+      {canEdit ? (
+        <form className="flex max-w-md gap-2.5" method="post" onSubmit={(event) => { event.preventDefault(); if (name.trim()) create.mutate(name.trim()) }}>
+          <Input placeholder="New category (e.g. Groceries)" value={name} onChange={(event) => setName(event.target.value)} maxLength={50} />
+          <Button type="submit" variant="secondary" className="font-bold" disabled={create.isPending || !name.trim()}>{create.isPending ? <Spinner /> : "Add category"}</Button>
+        </form>
+      ) : null}
     </div>
   )
 }
 
-function RolesSection({ onBack }: { onBack: () => void }) {
+function RolesSection() {
   return (
-    <div className="space-y-4">
-      <SectionHeader title="Roles & permissions" onBack={onBack} />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Owner</CardTitle></CardHeader>
-          <CardContent className="space-y-1.5 text-sm text-muted-foreground">
-            <p>Edits any expense or settlement regardless of who created it.</p>
-            <p>Approves or rejects pending expenses and settlements.</p>
-            <p>Changes trip settings, categories, and currencies.</p>
-            <p>Invites and removes members, and finalizes the trip.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Member</CardTitle></CardHeader>
-          <CardContent className="space-y-1.5 text-sm text-muted-foreground">
-            <p>Adds expenses and settlements.</p>
-            <p>Edits their own entries (or any entry, if the trip allows it).</p>
-            <p>Views balances, the transfer plan, and trip history.</p>
-          </CardContent>
-        </Card>
+    <div>
+      <SectionTitle>Roles & permissions</SectionTitle>
+      <div className="grid gap-3.5 sm:grid-cols-2">
+        <div className="rounded-[14px] border border-border bg-white p-[18px]">
+          <p className="mb-2.5 text-[13px] font-extrabold">Owner</p>
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            Manage settings &amp; currencies · Invite or remove members · Edit or delete any expense · Approve or reject expenses and settlements · Record settlements
+          </p>
+        </div>
+        <div className="rounded-[14px] border border-border bg-white p-[18px]">
+          <p className="mb-2.5 text-[13px] font-extrabold">Member</p>
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            Add &amp; edit their own expenses · View all expenses &amp; balances · Record settlements · Cannot change settings or remove members
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -248,11 +250,9 @@ function RolesSection({ onBack }: { onBack: () => void }) {
 function MembersSection({
   trip,
   participants,
-  onBack,
 }: {
   trip: Trip
   participants: Participant[]
-  onBack: () => void
 }) {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
@@ -288,68 +288,65 @@ function MembersSection({
   })
 
   return (
-    <div className="space-y-4">
-      <SectionHeader title="Members & invites" onBack={onBack} />
-      <Card>
-        <CardHeader><CardTitle className="text-base">Members</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {participants.map((participant) => {
-            const name = participant.user?.name ?? participant.user?.email ?? "Participant"
-            const mayEditBank = trip.canEditSettings || participant.userId === session?.user?.id
-            return (
-              <div key={participant.id} className="border-b pb-3 last:border-0">
-                <div className="flex items-center justify-between gap-4">
-                  <span>{name} <span className="text-muted-foreground">{participant.user?.email}</span></span>
-                  <span className="flex items-center gap-2">
-                    <Badge variant={participant.role === "planner" ? "default" : "secondary"}>{roleLabel(participant.role)}</Badge>
-                    <span className="text-sm text-muted-foreground">{participant.bankInfo?.accountNumber ?? "No bank details"}</span>
-                    {mayEditBank ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        aria-label={`Edit bank details for ${name}`}
-                        onClick={() => setEditingParticipant(participant.id)}
-                      >
-                        Edit bank
-                      </Button>
-                    ) : null}
-                  </span>
+    <div>
+      <SectionTitle>Members & invites</SectionTitle>
+      <h3 className="mb-3 font-heading text-[15px] font-extrabold">Members</h3>
+      <div className="mb-8 rounded-[14px] border border-border bg-white px-5">
+        {participants.map((participant) => {
+          const name = participant.user?.name ?? participant.user?.email ?? "Participant"
+          const mayEditBank = trip.canEditSettings || participant.userId === session?.user?.id
+          return (
+            <div key={participant.id} className="border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
+              <div className="flex items-center gap-3.5">
+                <Avatar size="sm"><AvatarFallback className={avatarColorFor(name)}>{initialsOf(name)}</AvatarFallback></Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{participant.user?.email}</p>
                 </div>
-                {editingParticipant === participant.id ? (
-                  <BankEditor code={trip.code} participant={participant} onClose={() => setEditingParticipant(null)} />
+                <Badge className="shrink-0 bg-muted text-muted-foreground capitalize">{roleLabel(participant.role)}</Badge>
+                {mayEditBank ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-auto shrink-0 rounded-[7px] px-2.5 py-1 text-xs font-semibold"
+                    aria-label={`Edit bank details for ${name}`}
+                    onClick={() => setEditingParticipant(participant.id)}
+                  >
+                    Edit bank
+                  </Button>
                 ) : null}
               </div>
-            )
-          })}
-        </CardContent>
-      </Card>
-      {trip.canEditSettings ? (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Invite someone</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
-              <Button disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>{invitationMutation.isPending ? <Spinner /> : "Invite"}</Button>
+              {editingParticipant === participant.id ? (
+                <BankEditor code={trip.code} participant={participant} onClose={() => setEditingParticipant(null)} />
+              ) : null}
             </div>
-            {link ? (
-              <>
-                <p className="text-sm text-muted-foreground">Email delivery lands in a later release — share this link directly.</p>
-                <Input readOnly value={link} />
-              </>
-            ) : null}
-            {pending.length ? (
-              <div className="space-y-2 border-t pt-3">
-                <p className="text-sm font-medium">Pending invites</p>
-                {pending.map((invitation) => (
-                  <div key={invitation.id} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{invitation.email}</span>
-                    <Button size="sm" variant="ghost" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>{revokeMutation.isPending ? <Spinner /> : "Revoke"}</Button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+          )
+        })}
+      </div>
+      {trip.canEditSettings ? (
+        <>
+          <h3 className="mb-3 font-heading text-[15px] font-extrabold">Invite people</h3>
+          <div className="mb-3.5 flex max-w-lg gap-2.5">
+            <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="email@example.com" />
+            <Button className="font-bold" disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>{invitationMutation.isPending ? <Spinner /> : "Send invite"}</Button>
+          </div>
+          {link ? (
+            <div className="mb-3.5 max-w-lg space-y-1.5">
+              <p className="text-xs text-muted-foreground">Email delivery lands in a later release — share this link directly.</p>
+              <Input readOnly value={link} />
+            </div>
+          ) : null}
+          {pending.length ? (
+            <div className="max-w-lg rounded-[14px] border border-border bg-white px-5">
+              {pending.map((invitation) => (
+                <div key={invitation.id} className="flex items-center justify-between gap-2 border-b border-[oklch(0.95_0.006_60)] py-3 text-[13px] last:border-0">
+                  <span>{invitation.email} <span className="text-muted-foreground">· pending</span></span>
+                  <button type="button" className="text-xs font-semibold text-destructive disabled:opacity-50" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>{revokeMutation.isPending ? <Spinner /> : "Revoke"}</button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </>
       ) : null}
     </div>
   )
@@ -359,43 +356,39 @@ function PreferencesSection({
   trip,
   updateSettings,
   disabled,
-  onBack,
 }: {
   trip: Trip
   updateSettings: (change: Partial<Trip["settings"]>) => void
   disabled: boolean
-  onBack: () => void
 }) {
   return (
-    <div className="space-y-4">
-      <SectionHeader title="Trip preferences" onBack={onBack} />
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <label className="flex items-center justify-between gap-4">
-            <span className="text-sm">Edit permission</span>
-            <NativeSelect
-              aria-label="Edit permission"
+    <div>
+      <SectionTitle>Trip preferences</SectionTitle>
+      <div className="max-w-lg rounded-[14px] border border-border bg-white px-5">
+        <label className="flex items-center justify-between gap-4 border-b border-[oklch(0.95_0.006_60)] py-3.5">
+          <span className="text-sm font-semibold">Edit permission</span>
+          <NativeSelect
+            aria-label="Edit permission"
+            disabled={!trip.canEditSettings || disabled}
+            value={trip.settings.editPermission}
+            onChange={(event) => updateSettings({ editPermission: event.target.value as Trip["settings"]["editPermission"] })}
+          >
+            <NativeSelectOption value="everyone">Everyone</NativeSelectOption>
+            <NativeSelectOption value="own_only">Own entries only</NativeSelectOption>
+          </NativeSelect>
+        </label>
+        {booleanSettings.map(([key, label]) => (
+          <label key={key} className="flex items-center justify-between gap-4 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
+            <span className="text-sm font-semibold">{label}</span>
+            <Switch
+              aria-label={label}
+              checked={trip.settings[key]}
               disabled={!trip.canEditSettings || disabled}
-              value={trip.settings.editPermission}
-              onChange={(event) => updateSettings({ editPermission: event.target.value as Trip["settings"]["editPermission"] })}
-            >
-              <NativeSelectOption value="everyone">Everyone</NativeSelectOption>
-              <NativeSelectOption value="own_only">Own entries only</NativeSelectOption>
-            </NativeSelect>
+              onCheckedChange={() => updateSettings({ [key]: !trip.settings[key] })}
+            />
           </label>
-          {booleanSettings.map(([key, label]) => (
-            <label key={key} className="flex items-center justify-between gap-4">
-              <span className="text-sm">{label}</span>
-              <Switch
-                aria-label={label}
-                checked={trip.settings[key]}
-                disabled={!trip.canEditSettings || disabled}
-                onCheckedChange={() => updateSettings({ [key]: !trip.settings[key] })}
-              />
-            </label>
-          ))}
-        </CardContent>
-      </Card>
+        ))}
+      </div>
     </div>
   )
 }
@@ -403,15 +396,13 @@ function PreferencesSection({
 function CurrenciesSection({
   trip,
   updateBaseCurrency,
-  onBack,
 }: {
   trip: Trip
   updateBaseCurrency: (value: string) => void
-  onBack: () => void
 }) {
   return (
-    <div className="space-y-4">
-      <SectionHeader title="Currencies & exchange rates" onBack={onBack} />
+    <div>
+      <SectionTitle>Currencies & exchange rates</SectionTitle>
       <TripCurrenciesManager
         tripCode={trip.code}
         baseCurrency={trip.baseCurrency}
@@ -496,20 +487,23 @@ export function SettingsPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader><CardTitle>Share trip</CardTitle></CardHeader>
-        <CardContent className="flex gap-2">
-          <Input readOnly value={trip.code} />
-          <Button onClick={() => navigator.clipboard.writeText(`${location.origin}/trip/${trip.code}`)}>Copy link</Button>
-        </CardContent>
-      </Card>
+    <div>
+      <Breadcrumb section={section} onBack={() => setSection("menu")} />
+      {section === "menu" ? (
+        <Card className="mb-6 rounded-[14px]">
+          <CardHeader><CardTitle className="text-base">Share trip</CardTitle></CardHeader>
+          <CardContent className="flex gap-2">
+            <Input readOnly value={trip.code} />
+            <Button className="font-bold" onClick={() => navigator.clipboard.writeText(`${location.origin}/trip/${trip.code}`)}>Copy link</Button>
+          </CardContent>
+        </Card>
+      ) : null}
       {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
-      {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} onBack={() => setSection("menu")} /> : null}
-      {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} onBack={() => setSection("menu")} /> : null}
-      {section === "roles" ? <RolesSection onBack={() => setSection("menu")} /> : null}
-      {section === "members" ? <MembersSection trip={trip} participants={participantsQuery.data} onBack={() => setSection("menu")} /> : null}
-      {section === "preferences" ? <PreferencesSection trip={trip} updateSettings={updateSettings} disabled={settingsMutation.isPending} onBack={() => setSection("menu")} /> : null}
+      {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} /> : null}
+      {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} /> : null}
+      {section === "roles" ? <RolesSection /> : null}
+      {section === "members" ? <MembersSection trip={trip} participants={participantsQuery.data} /> : null}
+      {section === "preferences" ? <PreferencesSection trip={trip} updateSettings={updateSettings} disabled={settingsMutation.isPending} /> : null}
     </div>
   )
 }
