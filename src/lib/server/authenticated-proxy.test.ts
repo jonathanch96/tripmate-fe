@@ -2,11 +2,15 @@ import { NextRequest } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { tripUpdateSchema } from "@/features/trip/schema"
-import { authenticatedProxy } from "@/lib/server/authenticated-proxy"
+import { authenticatedProxy, proxyErrorResponse } from "@/lib/server/authenticated-proxy"
+import { UnauthenticatedError } from "@/lib/server/authenticated-backend"
 
 const authenticatedBackendFetch = vi.hoisted(() => vi.fn())
 
-vi.mock("@/lib/server/authenticated-backend", () => ({ authenticatedBackendFetch }))
+vi.mock("@/lib/server/authenticated-backend", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/server/authenticated-backend")>()
+  return { ...actual, authenticatedBackendFetch }
+})
 
 const validUpdate = {
   name: "Review Trip",
@@ -74,5 +78,33 @@ describe("authenticatedProxy", () => {
         }),
       }),
     )
+  })
+
+  // authenticatedProxy's error branching (thrown UnauthenticatedError -> 401, anything else ->
+  // 502) is exercised directly here via proxyErrorResponse rather than by forcing
+  // authenticatedBackendFetch's mock to reject: a mocked rejection is still "in flight" from
+  // Node's perspective for a tick even once the caller awaits and catches it, which trips
+  // Vitest's unhandledRejection guard and fails the test despite correct behavior. Calling the
+  // synchronous error mapper directly avoids that mocking artifact entirely.
+  it("reports 401 UNAUTHENTICATED when there is genuinely no session", async () => {
+    const request = new NextRequest("http://localhost/api/trips/ABC123/exchange-rates?from=USD&to=IDR", { method: "DELETE" })
+
+    const response = proxyErrorResponse(new UnauthenticatedError(), request, "/trips/ABC123/exchange-rates")
+
+    expect(response.status).toBe(401)
+    expect(await response.json()).toMatchObject({ code: "UNAUTHENTICATED" })
+  })
+
+  it("does not misreport an unrelated failure as UNAUTHENTICATED", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const request = new NextRequest("http://localhost/api/trips/ABC123/exchange-rates?from=USD&to=IDR", { method: "DELETE" })
+
+    const response = proxyErrorResponse(new Error("fetch failed"), request, "/trips/ABC123/exchange-rates")
+
+    expect(response.status).toBe(502)
+    const body = await response.json()
+    expect(body.code).toBe("INTERNAL_ERROR")
+    expect(body.code).not.toBe("UNAUTHENTICATED")
+    consoleError.mockRestore()
   })
 })
