@@ -470,6 +470,8 @@ export function SettingsPanel() {
       if (error instanceof ApiError && error.envelope.code === "CONCURRENT_MODIFICATION") {
         toast.error("Someone else changed these settings. The latest version has been loaded.")
         void queryClient.invalidateQueries({ queryKey: qk.trip(trip.code) })
+      } else if (error instanceof ApiError) {
+        toast.error(error.envelope.errors[0]?.message ?? error.message)
       } else {
         toast.error("Could not update settings")
       }
