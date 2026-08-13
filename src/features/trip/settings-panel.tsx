@@ -34,7 +34,7 @@ import type { Invitation, Participant, Trip } from "@/features/trip/types"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { categoryColorFor } from "@/lib/category-colors"
 import { apiFetch } from "@/lib/api-client"
-import { ApiError } from "@/lib/envelope"
+import { apiErrorMessage, ApiError } from "@/lib/envelope"
 import { qk } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
 
@@ -96,7 +96,7 @@ function BankEditor({
       toast.success("Bank details updated")
       onClose()
     },
-    onError: () => toast.error("Could not update bank details"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not update bank details")),
   })
 
   return (
@@ -191,12 +191,12 @@ function CategoriesSection({ tripCode, canEdit }: { tripCode: string; canEdit: b
   const create = useMutation({
     mutationFn: (value: string) => createExpenseCategory(tripCode, value),
     onSuccess: async () => { setName(""); toast.success("Category added"); await refresh() },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : "Could not add category"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not add category")),
   })
   const remove = useMutation({
     mutationFn: (id: string) => deleteExpenseCategory(tripCode, id),
     onSuccess: async () => { toast.success("Category removed"); await refresh() },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : "Could not remove category"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not remove category")),
   })
   return (
     <div>
@@ -279,12 +279,12 @@ function MembersSection({
       toast.success(response.data?.status === "added" ? "Participant added" : "Invitation created")
       void queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) })
     },
-    onError: () => toast.error("Could not create invitation"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not create invitation")),
   })
   const revokeMutation = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/trips/${trip.code}/invitations/${id}`, { method: "DELETE" }),
     onSuccess: async () => { toast.success("Invitation revoked"); await queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) }) },
-    onError: () => toast.error("Could not revoke invitation"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not revoke invitation")),
   })
 
   return (
@@ -303,6 +303,9 @@ function MembersSection({
                   <p className="truncate text-sm font-semibold">{name}</p>
                   <p className="truncate text-xs text-muted-foreground">{participant.user?.email}</p>
                 </div>
+                {participant.user && !participant.user.hasAccount ? (
+                  <Badge className="shrink-0 bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="Invited — can be assigned to expenses, but hasn't signed in yet">Pending</Badge>
+                ) : null}
                 <Badge className="shrink-0 bg-muted text-muted-foreground capitalize">{roleLabel(participant.role)}</Badge>
                 {mayEditBank ? (
                   <Button
@@ -470,10 +473,8 @@ export function SettingsPanel() {
       if (error instanceof ApiError && error.envelope.code === "CONCURRENT_MODIFICATION") {
         toast.error("Someone else changed these settings. The latest version has been loaded.")
         void queryClient.invalidateQueries({ queryKey: qk.trip(trip.code) })
-      } else if (error instanceof ApiError) {
-        toast.error(error.envelope.errors[0]?.message ?? error.message)
       } else {
-        toast.error("Could not update settings")
+        toast.error(apiErrorMessage(error, "Could not update settings"))
       }
     },
   })

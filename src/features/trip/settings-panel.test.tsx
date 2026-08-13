@@ -40,7 +40,7 @@ const participants: Participant[] = [
     userId: "user-1",
     role: "planner",
     bankInfo: { bankName: "Old Bank", accountNumber: "12345678", accountHolder: "Planner" },
-    user: { id: "user-1", name: "Planner", email: "planner@example.com" },
+    user: { id: "user-1", name: "Planner", email: "planner@example.com", hasAccount: true },
   },
   {
     id: "participant-2",
@@ -48,7 +48,7 @@ const participants: Participant[] = [
     userId: "user-2",
     role: "participant",
     bankInfo: { bankName: "Member Bank", accountNumber: "••••4321", accountHolder: "Member" },
-    user: { id: "user-2", name: "Member", email: "member@example.com" },
+    user: { id: "user-2", name: "Member", email: "member@example.com", hasAccount: true },
   },
 ]
 

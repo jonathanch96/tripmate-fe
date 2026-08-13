@@ -19,6 +19,7 @@ import type { BalanceResult, Rate } from "@/features/finance/types"
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { categoryColorFor } from "@/lib/category-colors"
+import { apiErrorMessage } from "@/lib/envelope"
 import { qk } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
 
@@ -63,7 +64,7 @@ export function Dashboard() {
   const create = useMutation({
     mutationFn: (payload: ExpensePayload) => submitExpense(trip.code, payload),
     onSuccess: async () => { toast.success("Expense added"); await refresh() },
-    onError: () => toast.error("Could not add expense"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not add expense")),
   })
 
   if (query.isLoading) return <LoadingState label="Calculating balances…" />
