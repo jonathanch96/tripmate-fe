@@ -43,3 +43,11 @@ export function unwrap<T>(envelope: Envelope<T>, status = 500): T {
   return envelope.data
 }
 
+// Prefers the specific field-level message (e.g. "Invalid email address") over the envelope's
+// generic top-level message (e.g. "The request contains invalid fields"), and only falls back to
+// a fixed string when the error isn't from the API at all.
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.envelope.errors[0]?.message ?? error.message
+  return fallback
+}
+

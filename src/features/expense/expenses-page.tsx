@@ -15,6 +15,7 @@ import { updateExpense } from "@/features/expense/api"
 import type { Expense, ExpensePayload } from "@/features/expense/types"
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
+import { apiErrorMessage } from "@/lib/envelope"
 import { qk } from "@/lib/query-keys"
 
 export function ExpensesPage() {
@@ -27,9 +28,9 @@ export function ExpensesPage() {
   const query = useQuery({ queryKey: [...qk.expenses(trip.code), backendSearch.toString()], queryFn: async () => (await apiFetch<Expense[]>(`/api/trips/${trip.code}/expenses?${backendSearch}`)).data ?? [] })
   const categories = useQuery({ queryKey: qk.expenseCategories(trip.code), queryFn: async () => (await listExpenseCategories(trip.code)).data ?? [] })
   async function refresh() { await Promise.all([queryClient.invalidateQueries({ queryKey: qk.expenses(trip.code) }), queryClient.invalidateQueries({ queryKey: qk.balances(trip.code) }), queryClient.invalidateQueries({ queryKey: qk.finalSettlement(trip.code) })]) }
-  const create = useMutation({ mutationFn: (payload: ExpensePayload) => submitExpense(trip.code, payload), onSuccess: async () => { toast.success("Expense added"); await refresh() }, onError: () => toast.error("Could not add expense") })
-  const update = useMutation({ mutationFn: ({ expense, payload }: { expense: Expense; payload: ExpensePayload }) => updateExpense(trip.code, expense.id, { ...payload, version: expense.version }), onSuccess: async () => { setEditing(null); toast.success("Expense updated"); await refresh() }, onError: () => toast.error("Could not update expense") })
-  const action = useMutation({ mutationFn: ({ expense, action, body }: { expense: Expense; action: "approve" | "reject" | "delete"; body?: unknown }) => apiFetch(`/api/trips/${trip.code}/expenses/${expense.id}${action === "delete" ? "" : `/${action}`}`, { method: action === "delete" ? "DELETE" : "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined }), onSuccess: refresh, onError: () => toast.error("Could not update expense") })
+  const create = useMutation({ mutationFn: (payload: ExpensePayload) => submitExpense(trip.code, payload), onSuccess: async () => { toast.success("Expense added"); await refresh() }, onError: (error) => toast.error(apiErrorMessage(error, "Could not add expense")) })
+  const update = useMutation({ mutationFn: ({ expense, payload }: { expense: Expense; payload: ExpensePayload }) => updateExpense(trip.code, expense.id, { ...payload, version: expense.version }), onSuccess: async () => { setEditing(null); toast.success("Expense updated"); await refresh() }, onError: (error) => toast.error(apiErrorMessage(error, "Could not update expense")) })
+  const action = useMutation({ mutationFn: ({ expense, action, body }: { expense: Expense; action: "approve" | "reject" | "delete"; body?: unknown }) => apiFetch(`/api/trips/${trip.code}/expenses/${expense.id}${action === "delete" ? "" : `/${action}`}`, { method: action === "delete" ? "DELETE" : "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined }), onSuccess: refresh, onError: (error) => toast.error(apiErrorMessage(error, "Could not update expense")) })
   const categoryFilter = search.get("category_id")
   const expenses = (query.data ?? []).filter((expense) => !categoryFilter || expense.categoryId === categoryFilter)
   const currencies = [...new Set([trip.baseCurrency, ...(query.data ?? []).map((expense) => expense.currency)])]

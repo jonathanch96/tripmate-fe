@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import type { Invitation, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
+import { apiErrorMessage } from "@/lib/envelope"
 import { qk } from "@/lib/query-keys"
 
 export default function TripsPage() {
@@ -30,7 +31,7 @@ export default function TripsPage() {
         queryClient.invalidateQueries({ queryKey: qk.myInvitations() }),
       ])
     },
-    onError: () => toast.error("Could not accept invitation"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not accept invitation")),
   })
 
   return (

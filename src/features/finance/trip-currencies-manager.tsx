@@ -11,7 +11,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import type { Rate } from "@/features/finance/types"
 import { apiFetch } from "@/lib/api-client"
-import { ApiError } from "@/lib/envelope"
+import { apiErrorMessage } from "@/lib/envelope"
 import { SUPPORTED_CURRENCIES } from "@/lib/currencies"
 import { qk } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
@@ -60,12 +60,12 @@ export function TripCurrenciesManager({ tripCode, baseCurrency, canEdit, onBaseC
     mutationFn: (input: { from: string; to: string; rate: string }) =>
       apiFetch(`/api/trips/${tripCode}/exchange-rates`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }),
     onSuccess: async () => { setRateInput(""); toast.success("Currency added"); await refresh() },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : "Could not add currency"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not add currency")),
   })
   const removeCurrency = useMutation({
     mutationFn: (row: CurrencyRow) => apiFetch(`/api/trips/${tripCode}/exchange-rates?${new URLSearchParams({ from: row.rate!.from, to: row.rate!.to })}`, { method: "DELETE" }),
     onSuccess: async () => { toast.success("Currency removed"); await refresh() },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : "Could not remove currency"),
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not remove currency")),
   })
 
   const code = newCode || available[0] || ""
