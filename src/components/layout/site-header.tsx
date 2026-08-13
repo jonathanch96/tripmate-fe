@@ -1,19 +1,19 @@
 "use client"
 
 import Link from "next/link"
-import { Plane } from "lucide-react"
 import { signOut, useSession } from "next-auth/react"
 
+import { BrandMark } from "@/components/layout/brand-mark"
 import { Button, buttonVariants } from "@/components/ui/button"
 
 export function SiteHeader() {
   const { data: session, status } = useSession()
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-background/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href={status === "authenticated" ? "/trips" : "/"} className="flex items-center gap-2 font-heading text-xl font-bold tracking-tight">
-          <Plane className="size-7 text-primary" aria-hidden="true" />
+    <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur">
+      <div className="mx-auto flex h-[68px] max-w-6xl items-center justify-between px-10">
+        <Link href={status === "authenticated" ? "/trips" : "/"} className="flex items-center gap-2.5 font-heading text-lg font-extrabold tracking-tight">
+          <BrandMark />
           <span>TripMate</span>
         </Link>
         <nav aria-label="Primary navigation" className="flex items-center gap-3">

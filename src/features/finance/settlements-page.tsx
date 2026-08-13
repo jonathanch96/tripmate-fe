@@ -4,14 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState, type FormEvent } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { NativeSelect } from "@/components/ui/native-select"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import type { BalanceResult, Settlement, Transfer } from "@/features/finance/types"
+import { otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
+import type { BalanceResult, Rate, Settlement, Transfer } from "@/features/finance/types"
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
@@ -29,6 +29,8 @@ export function SettlementsPage() {
   const [actionError, setActionError] = useState("")
   const balances = useQuery({ queryKey: qk.balances(trip.code), queryFn: async () => (await apiFetch<BalanceResult>(`/api/trips/${trip.code}/balances`)).data! })
   const history = useQuery({ queryKey: qk.settlements(trip.code), queryFn: async () => (await apiFetch<Settlement[]>(`/api/trips/${trip.code}/settlements?per_page=100`)).data ?? [] })
+  const rates = useQuery({ queryKey: qk.rates(trip.code), queryFn: async () => (await apiFetch<Rate[]>(`/api/trips/${trip.code}/exchange-rates`)).data ?? [] })
+  const currencyOptions = [trip.baseCurrency, ...otherTripCurrencies(trip.baseCurrency, rates.data ?? []).map((row) => row.code)]
   const refresh = async () => Promise.all([client.invalidateQueries({ queryKey: qk.balances(trip.code) }), client.invalidateQueries({ queryKey: qk.settlements(trip.code) }), client.invalidateQueries({ queryKey: qk.finalSettlement(trip.code) })])
   const create = useMutation({
     mutationFn: () => apiFetch(`/api/trips/${trip.code}/settlements`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) }),
@@ -49,42 +51,72 @@ export function SettlementsPage() {
   function prefill(debt: Transfer) { setDraft({ ...draft, fromUserId: debt.fromUserId, toUserId: debt.toUserId, amount: debt.amount, currency: debt.currency }); setFormError(""); setRecordOpen(true) }
   function submit(event: FormEvent) { event.preventDefault(); setFormError(""); create.mutate() }
   function submitRejection(event: FormEvent) { event.preventDefault(); if (!rejecting || !reason.trim()) { setRejectError("Give a reason so the payer knows what to fix."); return } action.mutate({ row: rejecting, action: "reject", body: { reason: reason.trim() } }) }
-  return <section className="space-y-6"><div className="flex items-center justify-between gap-3"><div><h2 className="font-heading text-xl font-semibold">Settlements</h2><p className="text-sm text-muted-foreground">Record transfers and track planner approval.</p></div>
-    <Dialog open={recordOpen} onOpenChange={(open) => { setRecordOpen(open); if (!open) setFormError("") }}>
-      <DialogTrigger render={<Button />}>Record a settlement</DialogTrigger>
-      <DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Record a settlement</DialogTitle><DialogDescription>Log a payment between two participants. The planner approves it if this trip requires approval.</DialogDescription></DialogHeader>
-        <form className="grid gap-3 sm:grid-cols-2" method="post" onSubmit={submit}>
-          <label className="space-y-1 text-sm">From<NativeSelect className="w-full" value={draft.fromUserId} onChange={(e) => setDraft({ ...draft, fromUserId: e.target.value })}>{participants.map((p) => <option key={p.userId} value={p.userId}>{names.get(p.userId)}</option>)}</NativeSelect></label>
-          <label className="space-y-1 text-sm">To<NativeSelect className="w-full" value={draft.toUserId} onChange={(e) => setDraft({ ...draft, toUserId: e.target.value })}>{participants.map((p) => <option key={p.userId} value={p.userId}>{names.get(p.userId)}</option>)}</NativeSelect></label>
-          <label className="space-y-1 text-sm">Amount<Input required inputMode="decimal" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} /></label>
-          <label className="space-y-1 text-sm">Currency<Input required maxLength={3} value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value.toUpperCase() })} /></label>
-          <label className="space-y-1 text-sm">Method<NativeSelect className="w-full" value={draft.method} onChange={(e) => setDraft({ ...draft, method: e.target.value as Draft["method"] })}><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option></NativeSelect></label>
-          <label className="space-y-1 text-sm">Note<Input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
-          {draft.method === "bank_transfer" ? <div className="sm:col-span-2 rounded-lg bg-muted p-3 text-sm">Recipient account: {recipient?.bankInfo ? `${recipient.bankInfo.bankName} · ${recipient.bankInfo.accountNumber} · ${recipient.bankInfo.accountHolder}` : "No bank details saved"}</div> : null}
-          {formError ? <p role="alert" className="sm:col-span-2 text-sm text-destructive">{formError}</p> : null}
-          <DialogFooter className="sm:col-span-2"><Button disabled={create.isPending} type="submit">{create.isPending ? <><Spinner className="mr-1.5" />Recording…</> : "Record settlement"}</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  </div>
-    <Card><CardHeader><CardTitle>Outstanding debts</CardTitle></CardHeader><CardContent className="space-y-3">{balances.isLoading ? <LoadingState label="Loading debts…" /> : balances.data?.debts.length ? balances.data.debts.map((debt, i) => <div key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"><span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{debt.currency} {debt.amount}</strong></span><Button size="sm" onClick={() => prefill(debt)}>Settle this</Button></div>) : <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">No outstanding debts.</div>}</CardContent></Card>
-    <Card><CardHeader><CardTitle>History</CardTitle></CardHeader><CardContent className="space-y-3">{actionError ? <p role="alert" className="text-sm text-destructive">{actionError}</p> : null}{history.isLoading ? <LoadingState label="Loading settlements…" /> : history.data?.length ? <Table>
-      <TableHeader><TableRow><TableHead>From</TableHead><TableHead>To</TableHead><TableHead>Method</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
-      <TableBody>{history.data.map((row) => <TableRow key={row.id}>
-        <TableCell>{row.fromUser?.name ?? names.get(row.fromUserId)}</TableCell>
-        <TableCell>{row.toUser?.name ?? names.get(row.toUserId)}</TableCell>
-        <TableCell>{row.method === "bank_transfer" ? "Bank transfer" : "Cash"}</TableCell>
-        <TableCell><Badge variant={row.status === "pending" ? "secondary" : row.status === "rejected" ? "destructive" : "outline"}>{row.status}</Badge></TableCell>
-        <TableCell className="text-right font-medium tabular-nums">{row.currency} {row.amount}</TableCell>
-        <TableCell>{trip.canEditSettings && row.status === "pending" ? <div className="flex gap-1"><Button size="sm" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>{action.isPending ? <Spinner /> : "Approve"}</Button><Button size="sm" variant="outline" disabled={action.isPending} onClick={() => { setRejecting(row); setReason(""); setRejectError("") }}>Reject</Button><Button size="sm" variant="destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>{action.isPending ? <Spinner /> : "Delete"}</Button></div> : null}</TableCell>
-      </TableRow>)}</TableBody>
-    </Table> : <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">No settlements recorded.</div>}</CardContent></Card>
+  return <section>
+    <div className="mb-[22px] flex items-end justify-between gap-3">
+      <div><h1 className="font-heading text-[26px] font-extrabold">Settlements</h1><p className="mt-1.5 text-sm text-muted-foreground">Record a payment between members to update balances.</p></div>
+      <Dialog open={recordOpen} onOpenChange={(open) => { setRecordOpen(open); if (!open) setFormError("") }}>
+        <DialogTrigger render={<Button className="font-bold">+ Record settlement</Button>} />
+        <DialogContent className="rounded-[20px] sm:max-w-lg"><DialogHeader><DialogTitle className="font-heading text-[19px] font-extrabold">Record settlement</DialogTitle><DialogDescription>Log a payment between two participants. The planner approves it if this trip requires approval.</DialogDescription></DialogHeader>
+          <form className="grid gap-3 sm:grid-cols-2" method="post" onSubmit={submit}>
+            <label className="space-y-1.5 text-sm font-semibold">From (who is paying)<NativeSelect className="w-full font-normal" value={draft.fromUserId} onChange={(e) => setDraft({ ...draft, fromUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
+            <label className="space-y-1.5 text-sm font-semibold">To (who receives it)<NativeSelect className="w-full font-normal" value={draft.toUserId} onChange={(e) => setDraft({ ...draft, toUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
+            <label className="space-y-1.5 text-sm font-semibold">Amount<Input required inputMode="decimal" placeholder="0.00" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} /></label>
+            <label className="space-y-1.5 text-sm font-semibold">Currency<NativeSelect className="w-full font-normal" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value })}>{currencyOptions.map((code) => <NativeSelectOption key={code} value={code}>{code}</NativeSelectOption>)}</NativeSelect></label>
+            <label className="space-y-1.5 text-sm font-semibold">Method<NativeSelect className="w-full font-normal" value={draft.method} onChange={(e) => setDraft({ ...draft, method: e.target.value as Draft["method"] })}><NativeSelectOption value="bank_transfer">Bank transfer</NativeSelectOption><NativeSelectOption value="cash">Cash</NativeSelectOption></NativeSelect></label>
+            <label className="space-y-1.5 text-sm font-semibold">Note<Input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
+            {draft.method === "bank_transfer" ? <div className="rounded-lg bg-muted p-3 text-sm sm:col-span-2">Recipient account: {recipient?.bankInfo ? `${recipient.bankInfo.bankName} · ${recipient.bankInfo.accountNumber} · ${recipient.bankInfo.accountHolder}` : "No bank details saved"}</div> : null}
+            {formError ? <p role="alert" className="text-sm text-destructive sm:col-span-2">{formError}</p> : null}
+            <DialogFooter className="sm:col-span-2"><Button variant="outline" type="button" onClick={() => setRecordOpen(false)}>Cancel</Button><Button className="font-bold" disabled={create.isPending} type="submit">{create.isPending ? <><Spinner className="mr-1.5" />Recording…</> : "Save settlement"}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+
+    <h3 className="mb-3.5 font-heading text-[15px] font-extrabold">Outstanding debts</h3>
+    <div className="mb-8">
+      {balances.isLoading ? <LoadingState label="Loading debts…" /> : balances.data?.debts.length ? (
+        <div className="rounded-[14px] border border-border bg-white px-5">
+          {balances.data.debts.map((debt, i) => (
+            <div key={i} className="flex flex-wrap items-center justify-between gap-2 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
+              <span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{debt.currency} {debt.amount}</strong></span>
+              <Button size="sm" className="font-bold" onClick={() => prefill(debt)}>Settle this</Button>
+            </div>
+          ))}
+        </div>
+      ) : <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-10 text-center text-[13px] text-muted-foreground">No outstanding debts.</div>}
+    </div>
+
+    <h3 className="mb-3.5 font-heading text-[15px] font-extrabold">History</h3>
+    {actionError ? <p role="alert" className="mb-2 text-sm text-destructive">{actionError}</p> : null}
+    {history.isLoading ? <LoadingState label="Loading settlements…" /> : history.data?.length ? (
+      <div className="overflow-hidden rounded-[14px] border border-border bg-white">
+        <Table>
+          <TableHeader><TableRow className="border-b-border bg-muted hover:bg-muted">
+            <TableHead className="h-auto py-3 pl-5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">From</TableHead>
+            <TableHead className="h-auto py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">To</TableHead>
+            <TableHead className="h-auto py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Method</TableHead>
+            <TableHead className="h-auto py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Status</TableHead>
+            <TableHead className="h-auto py-3 text-right text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Amount</TableHead>
+            <TableHead className="h-auto py-3 pr-5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Actions</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>{history.data.map((row) => <TableRow key={row.id} className="border-b-[oklch(0.95_0.006_60)]">
+            <TableCell className="py-4 pl-5 text-sm">{row.fromUser?.name ?? names.get(row.fromUserId)}</TableCell>
+            <TableCell className="py-4 text-sm">{row.toUser?.name ?? names.get(row.toUserId)}</TableCell>
+            <TableCell className="py-4 text-sm text-muted-foreground">{row.method === "bank_transfer" ? "Bank transfer" : "Cash"}</TableCell>
+            <TableCell className="py-4"><Badge variant={row.status === "pending" ? "secondary" : row.status === "rejected" ? "destructive" : "outline"}>{row.status}</Badge></TableCell>
+            <TableCell className="py-4 text-right text-sm font-bold tabular-nums">{row.currency} {row.amount}</TableCell>
+            <TableCell className="py-4 pr-5">{trip.canEditSettings && row.status === "pending" ? <div className="flex justify-end gap-2"><Button size="sm" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>{action.isPending ? <Spinner /> : "Approve"}</Button><Button size="sm" variant="outline" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => { setRejecting(row); setReason(""); setRejectError("") }}>Reject</Button><Button size="sm" variant="ghost" className="h-auto px-2 py-1 text-xs font-semibold text-destructive hover:text-destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>{action.isPending ? <Spinner /> : "Delete"}</Button></div> : null}</TableCell>
+          </TableRow>)}</TableBody>
+        </Table>
+      </div>
+    ) : <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-10 text-center text-[13px] text-muted-foreground">No settlements yet. Once someone pays back, record it here.</div>}
+
     <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectError("") } }}>
-      <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Reject this settlement</DialogTitle><DialogDescription>{rejecting ? `${names.get(rejecting.fromUserId)} → ${names.get(rejecting.toUserId)} · ${rejecting.currency} ${rejecting.amount}` : ""}</DialogDescription></DialogHeader>
+      <DialogContent className="rounded-[20px] sm:max-w-md"><DialogHeader><DialogTitle className="font-heading text-[19px] font-extrabold">Reject this settlement</DialogTitle><DialogDescription>{rejecting ? `${names.get(rejecting.fromUserId)} → ${names.get(rejecting.toUserId)} · ${rejecting.currency} ${rejecting.amount}` : ""}</DialogDescription></DialogHeader>
         <form className="space-y-3" method="post" onSubmit={submitRejection}>
-          <label className="space-y-1 text-sm">Reason<Textarea required value={reason} onChange={(e) => { setReason(e.target.value); setRejectError("") }} placeholder="Tell the payer why this was rejected" /></label>
+          <label className="space-y-1.5 text-sm font-semibold">Reason<Textarea required value={reason} onChange={(e) => { setReason(e.target.value); setRejectError("") }} placeholder="Tell the payer why this was rejected" /></label>
           {rejectError ? <p role="alert" className="text-sm text-destructive">{rejectError}</p> : null}
-          <DialogFooter><Button type="button" variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button type="submit" variant="destructive" disabled={action.isPending}>{action.isPending ? <><Spinner className="mr-1.5" />Rejecting…</> : "Reject settlement"}</Button></DialogFooter>
+          <DialogFooter><Button type="button" variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button type="submit" variant="destructive" className="font-bold" disabled={action.isPending}>{action.isPending ? <><Spinner className="mr-1.5" />Rejecting…</> : "Reject settlement"}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
