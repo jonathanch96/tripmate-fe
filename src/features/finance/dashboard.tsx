@@ -163,7 +163,10 @@ export function Dashboard() {
               {result.debts.map((debt, index) => (
                 <div key={index} className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-semibold">{nameFor(debt.fromUserId)} → {nameFor(debt.toUserId)}</span>
-                  <span className="text-sm font-bold tabular-nums">{formatMoney(debt.amount, debt.currency)}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-bold tabular-nums">{formatMoney(debt.amount, debt.currency)}</span>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{secondaryLabel(debt.amount)}</p>
+                  </div>
                 </div>
               ))}
             </div>
