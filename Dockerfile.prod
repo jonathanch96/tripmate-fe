@@ -11,6 +11,12 @@ RUN pnpm install --frozen-lockfile
 FROM base AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so they must be passed as
+# build args (not just runtime `environment:` entries) to take effect.
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_GTM_ID
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_GTM_ID=$NEXT_PUBLIC_GTM_ID
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build

@@ -1,7 +1,13 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 
 import { AuthShell } from "@/features/auth/auth-shell"
 import { RegisterForm } from "@/features/auth/register-form"
+
+export const metadata: Metadata = {
+  title: "Create your account",
+  description: "Create a free TripMate account and start splitting trip expenses with friends.",
+}
 
 export default function RegisterPage() {
   return (

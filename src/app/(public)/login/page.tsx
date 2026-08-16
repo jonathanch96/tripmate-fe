@@ -1,7 +1,13 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 
 import { AuthShell } from "@/features/auth/auth-shell"
 import { LoginForm } from "@/features/auth/login-form"
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  description: "Sign in to TripMate to see your trips, balances, and settlements.",
+}
 
 // Signing in lands on the trip list, not the marketing page — `next` only redirects
 // somewhere else when the proxy bounced an authenticated route to /login.

@@ -4,6 +4,43 @@ import { ArrowRight, Calculator, Globe, Receipt, Users } from "lucide-react"
 import { SiteHeader } from "@/components/layout/site-header"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo"
+
+// Answers real questions in plain language so both search engines and AI answer engines (Google
+// AI Overviews, ChatGPT, Perplexity, etc.) can lift them directly — rendered as visible copy below
+// and mirrored in the FAQPage JSON-LD so the same content is machine-readable.
+const faqs = [
+  {
+    question: "What is TripMate?",
+    answer:
+      "TripMate is a shared-trip expense tracker. It records who paid for what, how each cost is split across the people involved, and calculates what everyone owes so the group doesn't need a spreadsheet.",
+  },
+  {
+    question: "How does TripMate split an expense fairly?",
+    answer:
+      "Each expense can have multiple payers and be shared across any subset of trip members, not just an even split across everyone. TripMate tracks the exact share each person owes for every expense.",
+  },
+  {
+    question: "Can TripMate handle expenses in different currencies?",
+    answer:
+      "Yes. TripMate keeps the original currency and amount on each expense while converting everything to one base currency, using an explicit exchange rate, so balances stay comparable across a multi-currency trip.",
+  },
+  {
+    question: "How does settling up work?",
+    answer:
+      "TripMate turns every outstanding balance in a trip into the smallest practical set of transfers between members, so instead of many small IOUs, each person makes as few payments as possible to settle up.",
+  },
+  {
+    question: "How do I join a trip on TripMate?",
+    answer:
+      "A trip organizer creates a trip and shares its trip code with the group. Anyone with the code can request to join, and once added as a participant they can log expenses and see balances.",
+  },
+  {
+    question: "Do I need to create an account to use TripMate?",
+    answer:
+      "Yes, a free TripMate account is required to create or join a trip. You can sign up with an email and password or continue with Google.",
+  },
+]
 
 const features = [
   {
@@ -33,8 +70,49 @@ const features = [
 ]
 
 export default function HomePage() {
+  // Structured data for search engines and AI answer engines: WebSite + SoftwareApplication
+  // describe what TripMate is, and FAQPage mirrors the visible FAQ section verbatim so the two
+  // never drift out of sync.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        url: SITE_URL,
+        name: SITE_NAME,
+        description: SITE_DESCRIPTION,
+      },
+      {
+        "@type": "SoftwareApplication",
+        name: SITE_NAME,
+        applicationCategory: "FinanceApplication",
+        operatingSystem: "Web",
+        description: SITE_DESCRIPTION,
+        url: SITE_URL,
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+        },
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: faqs.map(({ question, answer }) => ({
+          "@type": "Question",
+          name: question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: answer,
+          },
+        })),
+      },
+    ],
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <SiteHeader />
 
       <section className="container mx-auto px-4 py-16 md:py-24">
@@ -87,6 +165,18 @@ export default function HomePage() {
             <p><strong>3. Settle</strong> through the smallest practical set of transfers.</p>
           </CardContent>
         </Card>
+      </section>
+
+      <section className="container mx-auto px-4 pb-16">
+        <h2 className="mb-12 text-center text-3xl font-bold">Frequently asked questions</h2>
+        <div className="mx-auto max-w-3xl space-y-6">
+          {faqs.map(({ question, answer }) => (
+            <div key={question}>
+              <h3 className="text-lg font-semibold">{question}</h3>
+              <p className="mt-1 text-muted-foreground">{answer}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <footer className="border-t bg-muted/40 py-8">
