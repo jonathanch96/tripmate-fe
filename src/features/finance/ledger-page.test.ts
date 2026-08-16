@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { balanceColor, balanceLabel, entryDetail, entryTitle } from "@/features/finance/ledger-page"
+import { balanceColor, balanceLabel, entryDetail, entryTitle, matchesSign } from "@/features/finance/ledger-page"
 import type { LedgerEntry } from "@/features/finance/types"
 
 const names = new Map([["u1", "Ana"], ["u2", "Ben"]])
@@ -74,5 +74,25 @@ describe("entryDetail", () => {
     const received: LedgerEntry = { kind: "settlement", date: "2026-08-02", description: "Settlement", delta: "-50", runningBalance: "-50" }
     expect(entryDetail(sent, "PHP", categoryName, false, "")).toBe("You paid")
     expect(entryDetail(received, "PHP", categoryName, true, "Ben")).toBe("You received")
+  })
+})
+
+describe("matchesSign", () => {
+  const positive = expenseEntry({ delta: "80" })
+  const negative = expenseEntry({ delta: "-40" })
+
+  it("passes everything for 'all'", () => {
+    expect(matchesSign(positive, "all")).toBe(true)
+    expect(matchesSign(negative, "all")).toBe(true)
+  })
+
+  it("keeps only credits (owed to you) for 'positive'", () => {
+    expect(matchesSign(positive, "positive")).toBe(true)
+    expect(matchesSign(negative, "positive")).toBe(false)
+  })
+
+  it("keeps only debits (you owe) for 'negative'", () => {
+    expect(matchesSign(positive, "negative")).toBe(false)
+    expect(matchesSign(negative, "negative")).toBe(true)
   })
 })
