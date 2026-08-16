@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { categoryColorFor } from "@/lib/category-colors"
+import { formatMoney } from "@/lib/money"
 import { participantNameMap } from "@/lib/participant-name"
 import { cn } from "@/lib/utils"
 import type { Expense, ExpenseCategory } from "@/features/expense/types"
@@ -15,8 +16,6 @@ import type { Rate } from "@/features/finance/types"
 import type { Participant, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
 import { qk } from "@/lib/query-keys"
-
-const zeroScaleCurrencies = new Set(["IDR", "JPY", "KRW", "VND"])
 
 const SPLIT_LABEL: Record<Expense["splitType"], string> = {
   equal: "Equal", manual: "Exact", item: "Itemized", percent: "Percent", shares: "Shares",
@@ -31,12 +30,11 @@ const STATUS_VARIANT: Record<Expense["status"], "outline" | "secondary" | "destr
 // the expense is already in base currency (nothing extra to show) or no rate is available yet.
 function baseAmountLine(expense: Expense, trip: Trip, rates: Rate[]): string | null {
   if (expense.currency === trip.baseCurrency) return null
-  const scale = zeroScaleCurrencies.has(trip.baseCurrency) ? 0 : 2
   if (expense.chargedAmount && expense.chargedCurrency === trip.baseCurrency) {
-    return `${trip.baseCurrency} ${expense.chargedAmount}`
+    return formatMoney(expense.chargedAmount, trip.baseCurrency)
   }
   const converted = convertToBase(expense.amount, trip.baseCurrency, expense.currency, rates)
-  return converted ? `${trip.baseCurrency} ${converted.toFixed(scale)}` : null
+  return converted ? formatMoney(converted, trip.baseCurrency) : null
 }
 
 export function ExpenseTable({ trip, expenses, categories, participants, pendingAction, hasAnyExpenses = true, onEdit, onDelete, onApprove, onReject }: { trip: Trip; expenses: Expense[]; categories: ExpenseCategory[]; participants: Participant[]; pendingAction: boolean; hasAnyExpenses?: boolean; onEdit: (expense: Expense) => void; onDelete: (expense: Expense) => void; onApprove: (expense: Expense) => void; onReject: (expense: Expense) => void }) {
@@ -75,7 +73,7 @@ export function ExpenseTable({ trip, expenses, categories, participants, pending
             <TableCell className="py-4 text-[13px] text-muted-foreground">{SPLIT_LABEL[expense.splitType]}</TableCell>
             <TableCell className="py-4"><Badge variant={STATUS_VARIANT[expense.status]}>{expense.status}</Badge></TableCell>
             <TableCell className="py-4 text-right text-sm font-bold tabular-nums">
-              {expense.currency} {expense.amount}
+              {formatMoney(expense.amount, expense.currency)}
               {(() => { const base = baseAmountLine(expense, trip, rates.data ?? []); return base ? <div className="mt-0.5 text-xs font-normal text-muted-foreground">≈ {base}</div> : null })()}
             </TableCell>
             <TableCell className="py-4 pr-5"><div className="flex justify-end gap-2">{expense.canEdit ? <Button size="sm" variant="outline" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={pendingAction} onClick={() => onEdit(expense)}>Edit</Button> : null}{expense.canApprove ? <Button size="sm" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={pendingAction} onClick={() => onApprove(expense)}>{pendingAction ? <Spinner /> : "Approve"}</Button> : null}{expense.canReject ? <Button size="sm" variant="outline" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={pendingAction} onClick={() => onReject(expense)}>Reject</Button> : null}{expense.canDelete ? <Button size="sm" variant="ghost" className="h-auto px-2 py-1 text-xs font-semibold text-destructive hover:text-destructive" disabled={pendingAction} onClick={() => onDelete(expense)}>{pendingAction ? <Spinner /> : "Delete"}</Button> : null}</div></TableCell>

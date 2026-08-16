@@ -1,7 +1,6 @@
 "use client"
 /* eslint-disable @next/next/no-img-element -- receipt URLs are short-lived signed object URLs and cannot use the image optimizer */
 
-import Decimal from "decimal.js"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -17,6 +16,7 @@ import { SharePreview } from "@/features/receipt/components/share-preview"
 import type { ItemInput, Receipt, ReceiptItem, ShareBreakdown } from "@/features/receipt/types"
 import type { Participant, Trip } from "@/features/trip/types"
 import { ApiError } from "@/lib/envelope"
+import { formatMoney, safeDecimal } from "@/lib/money"
 
 type ManualDefaults = { description: string; amount: string; currency: string; expenseDate: string }
 
@@ -61,14 +61,14 @@ export function ReceiptWorkflow({ trip, participants, onConverted, onManual }: {
   const manual = () => onManual({ description: receipt.merchant ?? description, amount: receipt.total ?? shares?.total ?? "", currency: receipt.currency ?? trip.baseCurrency, expenseDate: receipt.receiptDate ?? date })
   if (receipt.status !== "extracted") return <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"><div>{preview || receipt.imageUrl ? <img src={preview || receipt.imageUrl} onError={refreshImage} alt="Uploaded receipt" className="mx-auto max-h-80 rounded-md object-contain" /> : null}</div><ExtractionProgress pending={busy === "extract" || busy === "upload"} error={error} onExtract={() => runExtract(receipt)} onManual={manual} /></div>
   const total = shares?.total ?? receipt.total ?? ""
-  const paid = payers.reduce((sum, payer) => sum.plus(payer.amount || 0), new Decimal(0))
-  const canConvert = Boolean(shares && shares.unassignedItems.length === 0 && payers.length > 0 && paid.equals(new Decimal(total || 0)))
+  const paid = payers.reduce((sum, payer) => sum.plus(safeDecimal(payer.amount)), safeDecimal(0))
+  const canConvert = Boolean(shares && shares.unassignedItems.length === 0 && payers.length > 0 && paid.equals(safeDecimal(total)))
   return <div className="space-y-5">
-    <div className="grid gap-4 md:grid-cols-[14rem_1fr]"><img src={receipt.imageUrl || preview} onError={refreshImage} alt="Receipt" className="max-h-64 w-full rounded-md bg-muted object-contain" /><div className="grid content-start gap-3"><label>Description<Input value={description} onChange={(event) => setDescription(event.target.value)} /></label><label>Date<Input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><p className="text-sm"><span className="text-muted-foreground">Receipt total:</span> {receipt.currency ?? trip.baseCurrency} {receipt.total ?? total}</p></div></div>
+    <div className="grid gap-4 md:grid-cols-[14rem_1fr]"><img src={receipt.imageUrl || preview} onError={refreshImage} alt="Receipt" className="max-h-64 w-full rounded-md bg-muted object-contain" /><div className="grid content-start gap-3"><label>Description<Input value={description} onChange={(event) => setDescription(event.target.value)} /></label><label>Date<Input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><p className="text-sm"><span className="text-muted-foreground">Receipt total:</span> {formatMoney(receipt.total ?? total, receipt.currency ?? trip.baseCurrency)}</p></div></div>
     <ReceiptItemTable receipt={receipt} pending={busy === "item"} onUpdate={updateItem} onAdd={addItem} onDelete={removeItem} />
     <ItemAssignmentGrid items={receipt.items} participants={participants} pending={busy === "assign"} onChange={assignments} />
     <SharePreview shares={shares} participants={participants} loading={busy === "shares" || busy === "assign"} />
-    <PayerEditor amount={total} rows={payers} participants={participants} onChange={setPayers} />
+    <PayerEditor amount={total} currency={receipt.currency ?? trip.baseCurrency} rows={payers} participants={participants} onChange={setPayers} />
     <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={manual}>Enter manually instead</Button><Button type="button" disabled={!canConvert || busy === "convert"} onClick={convert}>{busy === "convert" ? "Creating expense…" : "Create one expense"}</Button></div>
   </div>
 }

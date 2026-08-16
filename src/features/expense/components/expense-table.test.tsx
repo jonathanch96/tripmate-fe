@@ -52,14 +52,14 @@ describe("ExpenseTable", () => {
   it("shows no secondary line for an expense already in the trip's base currency", () => {
     const expenses = [baseExpense({})]
     render(<ExpenseTable trip={trip} expenses={expenses} categories={[]} participants={participants} pendingAction={false} onEdit={noop} onDelete={noop} onApprove={noop} onReject={noop} />, { wrapper: Wrapper })
-    expect(screen.getByText("THB 1500.00")).toBeTruthy()
+    expect(screen.getByText("THB 1,500.00")).toBeTruthy()
     expect(screen.queryByText(/≈/)).toBeNull()
   })
 
   it("shows the exact charged-amount override as the base-currency line when one is set", async () => {
     const expenses = [baseExpense({ currency: "IDR", amount: "1500.00", chargedAmount: "84000.00", chargedCurrency: "THB" })]
     render(<ExpenseTable trip={trip} expenses={expenses} categories={[]} participants={participants} pendingAction={false} onEdit={noop} onDelete={noop} onApprove={noop} onReject={noop} />, { wrapper: Wrapper })
-    expect(await screen.findByText("≈ THB 84000.00")).toBeTruthy()
+    expect(await screen.findByText("≈ THB 84,000.00")).toBeTruthy()
   })
 
   it("falls back to the trip's saved rate when there's no charged-amount override", async () => {

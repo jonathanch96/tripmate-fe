@@ -48,8 +48,8 @@ describe("ExpenseDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Shares" }))
     fireEvent.change(screen.getByLabelText(/shares for jonathan/i), { target: { value: "5" } })
     fireEvent.change(screen.getByLabelText(/shares for elisabeth/i), { target: { value: "2" } })
-    await waitFor(() => expect(screen.getByText("1071428.57")).toBeTruthy())
-    expect(screen.getByText("428571.43")).toBeTruthy()
+    await waitFor(() => expect(screen.getByText("1,071,428.57")).toBeTruthy())
+    expect(screen.getByText("428,571.43")).toBeTruthy()
   })
 
   it("defaults a new expense to the trip's other saved currency instead of its base currency", async () => {
@@ -79,7 +79,7 @@ describe("ExpenseDialog", () => {
     const chargedInput = screen.getByLabelText("Amount actually charged in THB")
     fireEvent.change(chargedInput, { target: { value: "84000" } })
     // The entry amount/currency (what's split) is untouched by the override.
-    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "1500")
+    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "1,500")
     await waitFor(() => expect(screen.getByText(/1 IDR = 56/i)).toBeTruthy())
 
     fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "THB" } })
@@ -98,9 +98,9 @@ describe("ExpenseDialog", () => {
       version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     }
     render(<ExpenseDialog trip={trip} participants={participants} expense={expense} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
-    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "1500.00")
+    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "1,500.00")
     expect(screen.getByLabelText("Currency")).toHaveProperty("value", "IDR")
-    expect(await screen.findByLabelText("Amount actually charged in THB")).toHaveProperty("value", "84000.00")
+    expect(await screen.findByLabelText("Amount actually charged in THB")).toHaveProperty("value", "84,000.00")
   })
 
   it("edits an expense already in the trip's base currency with no charged-amount option shown", () => {
@@ -114,9 +114,47 @@ describe("ExpenseDialog", () => {
       version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     }
     render(<ExpenseDialog trip={trip} participants={participants} expense={expense} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
-    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "5000.00")
+    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "5,000.00")
     expect(screen.getByLabelText("Currency")).toHaveProperty("value", "THB")
     expect(screen.queryByText(/i know exactly what this cost/i)).toBeNull()
+  })
+
+  it("defaults every participant's shares to 0 so only the people actually splitting need a value", async () => {
+    render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    await waitFor(() => expect(screen.getByLabelText("Currency").querySelector('option[value="IDR"]')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Group taxi" } })
+    fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "THB" } })
+    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "1500" } })
+    fireEvent.click(screen.getByRole("button", { name: "Shares" }))
+    expect(screen.getByLabelText(/shares for jonathan/i)).toHaveProperty("value", "0")
+    expect(screen.getByLabelText(/shares for elisabeth/i)).toHaveProperty("value", "0")
+    expect(screen.getByText("0.00 total shares")).toBeTruthy()
+    // Setting just one participant's shares is enough to produce a valid split total - the other
+    // participant's default 0 doesn't need to be touched.
+    fireEvent.change(screen.getByLabelText(/shares for jonathan/i), { target: { value: "1" } })
+    await waitFor(() => expect(screen.getByText("1.00 total shares")).toBeTruthy())
+    expect(screen.getByLabelText(/shares for elisabeth/i)).toHaveProperty("value", "0")
+  })
+
+  it("pastes a currency-symbol amount without crashing and sanitizes it", async () => {
+    render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    const amountInput = screen.getByLabelText("Amount")
+    const clipboardData = { getData: () => "฿65.00" }
+    fireEvent.paste(amountInput, { clipboardData })
+    expect(amountInput).toHaveProperty("value", "65.00")
+  })
+
+  it("distributes the remainder to whichever participant is picked in the modal, not just the last row", async () => {
+    render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    await waitFor(() => expect(screen.getByLabelText("Currency").querySelector('option[value="IDR"]')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "THB" } })
+    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "200" } })
+    fireEvent.click(screen.getByRole("button", { name: "Exact" }))
+    fireEvent.change(screen.getByLabelText(/split for jonathan/i), { target: { value: "100" } })
+    fireEvent.click(screen.getByRole("button", { name: "Distribute rest" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Elisabeth" }))
+    expect(screen.getByLabelText(/split for elisabeth/i)).toHaveProperty("value", "100.00")
+    expect(screen.getByLabelText(/split for jonathan/i)).toHaveProperty("value", "100")
   })
 
   it("carries chargedAmount/chargedCurrency through expenseFormFromExpense", () => {

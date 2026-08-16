@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MoneyInput } from "@/components/ui/money-input"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
@@ -22,10 +23,8 @@ import { convertToBase, otherTripCurrencies } from "@/features/finance/rate-pair
 import type { Rate } from "@/features/finance/types"
 import type { Participant, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
+import { displayScale, formatMoney } from "@/lib/money"
 import { qk } from "@/lib/query-keys"
-
-const zeroScaleCurrencies = new Set(["IDR", "JPY", "KRW", "VND"])
-const money = (amount: string, currency: string) => `${currency} ${amount}`
 
 export type ExpenseFormState = ExpensePayload & { version?: number }
 
@@ -90,7 +89,6 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
   function enableCharged() { setChargedExpanded(true) }
   function disableCharged() { setChargedExpanded(false); setChargedAmount("") }
 
-  const baseScale = zeroScaleCurrencies.has(trip.baseCurrency) ? 0 : 2
   const amountValue = Number.parseFloat(amount)
   const chargedAmountValue = Number.parseFloat(chargedAmount)
   const perTransactionRate = chargedAmountValue > 0 && amountValue > 0 ? new Decimal(chargedAmountValue).div(amountValue) : null
@@ -98,7 +96,7 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
   const chargedHint = perTransactionRate
     ? `Rate for this transaction: 1 ${currency} = ${perTransactionRate.toFixed(6)} ${trip.baseCurrency}.`
     : convertedToBasePreview
-      ? `≈ ${money(convertedToBasePreview.toFixed(baseScale), trip.baseCurrency)} at your saved rate.`
+      ? `≈ ${formatMoney(convertedToBasePreview, trip.baseCurrency)} at your saved rate.`
       : `No saved rate for ${currency} yet — add one in Settings to see the equivalent.`
 
   const payload = useMemo<ExpensePayload>(() => ({
@@ -115,6 +113,18 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
   const valid = expenseCreateSchema.safeParse(payload).success
   function amountChanged(value: string) { setAmount(value); if (payers.length === 1) setPayers([{ ...payers[0], amount: value }]) }
   function currencyChanged(value: string) { setCurrency(value); if (value === trip.baseCurrency) disableCharged() }
+  // Shares defaults every participant to 0 rather than blank, so entering a share count for just
+  // the people actually splitting the bill is enough - everyone else implicitly sits it out
+  // instead of blocking Save until every row is touched.
+  function splitTypeChanged(type: SplitType) {
+    setSplitType(type)
+    if (type === "shares") {
+      setManual(participants.map((participant) => {
+        const existing = manual.find((row) => row.userId === participant.userId)
+        return existing?.weight !== undefined ? existing : { userId: participant.userId, amount: existing?.amount ?? "0", weight: "0" }
+      }))
+    }
+  }
   return <Dialog open={open} onOpenChange={setOpen}>
     {!expense ? <DialogTrigger render={<Button className="font-bold">+ Add expense</Button>} /> : null}
     <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[20px] p-0 sm:max-w-2xl">
@@ -132,7 +142,7 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="expense-amount">Amount</Label>
-            <Input id="expense-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => amountChanged(event.target.value)} />
+            <MoneyInput id="expense-amount" placeholder="0.00" value={amount} onChange={amountChanged} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="expense-currency">Currency</Label>
@@ -157,14 +167,14 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
               <span className="text-[13px] font-extrabold">Actually charged in {trip.baseCurrency}</span>
               <button type="button" className="text-xs font-semibold text-destructive" onClick={disableCharged}>Remove</button>
             </div>
-            <Input aria-label={`Amount actually charged in ${trip.baseCurrency}`} inputMode="decimal" placeholder={`e.g. ${zeroScaleCurrencies.has(trip.baseCurrency) ? "840,000" : "840.00"}`} value={chargedAmount} onChange={(event) => setChargedAmount(event.target.value)} />
+            <MoneyInput aria-label={`Amount actually charged in ${trip.baseCurrency}`} placeholder={`e.g. ${displayScale(trip.baseCurrency) === 0 ? "840,000" : "840.00"}`} value={chargedAmount} onChange={setChargedAmount} />
             <p className="mt-2 text-xs text-muted-foreground">e.g. what your card statement actually shows — this becomes the exact rate used for this expense only, overriding the trip&apos;s saved rate.</p>
             <p className="mt-1 text-xs text-muted-foreground">{chargedHint}</p>
           </div>
         )}
 
-        <PayerEditor amount={amount} rows={payers} participants={participants} onChange={setPayers} />
-        <SplitEditor amount={amount} currency={currency} type={splitType} selected={selected} manual={manual} participants={participants} onType={setSplitType} onSelected={setSelected} onManual={setManual} />
+        <PayerEditor amount={amount} currency={currency} rows={payers} participants={participants} onChange={setPayers} />
+        <SplitEditor amount={amount} currency={currency} type={splitType} selected={selected} manual={manual} participants={participants} onType={splitTypeChanged} onSelected={setSelected} onManual={setManual} />
         <div className="space-y-1.5"><Label htmlFor="expense-note">Note</Label><Textarea id="expense-note" rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></div>
       </div><DialogFooter className="mx-0 mt-4 mb-0 rounded-b-[20px] bg-muted/50 px-8 py-4"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button className="font-bold" disabled={!valid || pending} onClick={() => { onSubmit(expenseCreateSchema.parse(payload)); setOpen(false) }}>{pending ? <><Spinner className="mr-1.5" />Saving…</> : expense ? "Save changes" : "Save expense"}</Button></DialogFooter></TabsContent>
         {!expense ? <TabsContent value="receipt"><ReceiptWorkflow trip={trip} participants={participants} onConverted={() => { setOpen(false); onReceiptConverted?.() }} onManual={(defaults) => {

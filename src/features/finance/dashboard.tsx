@@ -20,15 +20,10 @@ import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { categoryColorFor } from "@/lib/category-colors"
 import { apiErrorMessage } from "@/lib/envelope"
+import { formatMoney } from "@/lib/money"
 import { participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
-
-const money = (amount: string, currency: string) => `${currency} ${amount}`
-
-// Mirrors the backend's money.DisplayScale — these currencies have no minor unit.
-const zeroScaleCurrencies = new Set(["IDR", "JPY", "KRW", "VND"])
-const displayScale = (currency: string) => (zeroScaleCurrencies.has(currency.toUpperCase()) ? 0 : 2)
 
 function BalanceBar({ fraction, owed }: { fraction: number; owed: boolean }) {
   return (
@@ -78,14 +73,13 @@ export function Dashboard() {
   const mineOwed = mineValue ? !mineValue.isNegative() : null
   const pending = result.summary.pendingExpenseCount + result.summary.pendingSettlementCount
   const maxBalance = Math.max(1, ...result.balances.map((row) => Math.abs(new Decimal(row.netBalance).toNumber())))
-  const scale = displayScale(result.baseCurrency)
 
   const secondaryOptions = rates.data ? otherTripCurrencies(trip.baseCurrency, rates.data) : []
   const showSecondary = secondaryCurrency.length > 0
   const secondaryLabel = (amount: Decimal.Value) => {
     if (!showSecondary || !rates.data) return null
     const converted = convertFromBase(amount, trip.baseCurrency, secondaryCurrency, rates.data)
-    return converted ? `≈ ${money(converted.abs().toFixed(displayScale(secondaryCurrency)), secondaryCurrency)}` : null
+    return converted ? `≈ ${formatMoney(converted.abs(), secondaryCurrency)}` : null
   }
   const categoryName = (id: string | null) => categories.data?.find((category) => category.id === id)?.name ?? "Other"
   const names = participantNameMap(participants)
@@ -126,7 +120,7 @@ export function Dashboard() {
         <div className="rounded-[14px] border border-border bg-white p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Your balance</p>
           <p className={cn("font-heading text-[22px] font-extrabold", mineValue == null ? "" : mineOwed ? "text-success" : "text-destructive")}>
-            {mineValue == null ? "—" : mineValue.abs().lessThan("0.5") ? "Settled up" : `${mineOwed ? "+" : "-"}${money(mineValue.abs().toFixed(scale), result.baseCurrency)}`}
+            {mineValue == null ? "—" : mineValue.abs().lessThan("0.5") ? "Settled up" : `${mineOwed ? "+" : "-"}${formatMoney(mineValue.abs(), result.baseCurrency)}`}
           </p>
           {mineValue != null && mineValue.abs().greaterThanOrEqualTo("0.5") ? (
             <p className="mt-1 text-xs text-muted-foreground">{secondaryLabel(mineValue.abs())}</p>
@@ -134,7 +128,7 @@ export function Dashboard() {
         </div>
         <div className="rounded-[14px] border border-border bg-white p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Total trip spend</p>
-          <p className="font-heading text-[22px] font-extrabold">{money(result.summary.totalExpenses, result.baseCurrency)}</p>
+          <p className="font-heading text-[22px] font-extrabold">{formatMoney(result.summary.totalExpenses, result.baseCurrency)}</p>
           <p className="mt-1 text-xs text-muted-foreground">{secondaryLabel(result.summary.totalExpenses)}</p>
         </div>
         <div className="rounded-[14px] border border-border bg-white p-5">
@@ -155,7 +149,7 @@ export function Dashboard() {
               <BalanceBar fraction={Math.abs(value.toNumber()) / maxBalance} owed={owed} />
               <div className="w-[170px] shrink-0 text-right">
                 <span className={cn("text-[13px] font-bold", settled ? "text-muted-foreground" : owed ? "text-success" : "text-destructive")}>
-                  {settled ? "settled up" : `${owed ? "is owed " : "owes "}${money(value.abs().toFixed(scale), result.baseCurrency)}`}
+                  {settled ? "settled up" : `${owed ? "is owed " : "owes "}${formatMoney(value.abs(), result.baseCurrency)}`}
                 </span>
                 {!settled ? <p className="mt-0.5 text-[11px] text-muted-foreground">{secondaryLabel(value.abs())}</p> : null}
               </div>
@@ -169,7 +163,7 @@ export function Dashboard() {
               {result.debts.map((debt, index) => (
                 <div key={index} className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-semibold">{nameFor(debt.fromUserId)} → {nameFor(debt.toUserId)}</span>
-                  <span className="text-sm font-bold tabular-nums">{money(debt.amount, debt.currency)}</span>
+                  <span className="text-sm font-bold tabular-nums">{formatMoney(debt.amount, debt.currency)}</span>
                 </div>
               ))}
             </div>
@@ -202,7 +196,7 @@ export function Dashboard() {
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-sm font-bold tabular-nums">{money(expense.amount, expense.currency)}</p>
+                  <p className="text-sm font-bold tabular-nums">{formatMoney(expense.amount, expense.currency)}</p>
                   {secondary ? <p className="text-[11px] text-muted-foreground">{secondary}</p> : null}
                 </div>
               </div>

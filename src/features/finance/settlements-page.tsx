@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { MoneyInput } from "@/components/ui/money-input"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,6 +16,7 @@ import type { BalanceResult, Rate, Settlement, Transfer } from "@/features/finan
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
+import { formatMoney } from "@/lib/money"
 import { participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
 
@@ -61,7 +63,7 @@ export function SettlementsPage() {
           <form className="grid gap-3 sm:grid-cols-2" method="post" onSubmit={submit}>
             <label className="space-y-1.5 text-sm font-semibold">From (who is paying)<NativeSelect className="w-full font-normal" value={draft.fromUserId} onChange={(e) => setDraft({ ...draft, fromUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
             <label className="space-y-1.5 text-sm font-semibold">To (who receives it)<NativeSelect className="w-full font-normal" value={draft.toUserId} onChange={(e) => setDraft({ ...draft, toUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
-            <label className="space-y-1.5 text-sm font-semibold">Amount<Input required inputMode="decimal" placeholder="0.00" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} /></label>
+            <label className="space-y-1.5 text-sm font-semibold">Amount<MoneyInput required placeholder="0.00" value={draft.amount} onChange={(value) => setDraft({ ...draft, amount: value })} /></label>
             <label className="space-y-1.5 text-sm font-semibold">Currency<NativeSelect className="w-full font-normal" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value })}>{currencyOptions.map((code) => <NativeSelectOption key={code} value={code}>{code}</NativeSelectOption>)}</NativeSelect></label>
             <label className="space-y-1.5 text-sm font-semibold">Method<NativeSelect className="w-full font-normal" value={draft.method} onChange={(e) => setDraft({ ...draft, method: e.target.value as Draft["method"] })}><NativeSelectOption value="bank_transfer">Bank transfer</NativeSelectOption><NativeSelectOption value="cash">Cash</NativeSelectOption></NativeSelect></label>
             <label className="space-y-1.5 text-sm font-semibold">Note<Input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
@@ -79,7 +81,7 @@ export function SettlementsPage() {
         <div className="rounded-[14px] border border-border bg-white px-5">
           {balances.data.debts.map((debt, i) => (
             <div key={i} className="flex flex-wrap items-center justify-between gap-2 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
-              <span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{debt.currency} {debt.amount}</strong></span>
+              <span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{formatMoney(debt.amount, debt.currency)}</strong></span>
               <Button size="sm" className="font-bold" onClick={() => prefill(debt)}>Settle this</Button>
             </div>
           ))}
@@ -105,7 +107,7 @@ export function SettlementsPage() {
             <TableCell className="py-4 text-sm">{names.get(row.toUserId) ?? row.toUser?.name ?? "Participant"}</TableCell>
             <TableCell className="py-4 text-sm text-muted-foreground">{row.method === "bank_transfer" ? "Bank transfer" : "Cash"}</TableCell>
             <TableCell className="py-4"><Badge variant={row.status === "pending" ? "secondary" : row.status === "rejected" ? "destructive" : "outline"}>{row.status}</Badge></TableCell>
-            <TableCell className="py-4 text-right text-sm font-bold tabular-nums">{row.currency} {row.amount}</TableCell>
+            <TableCell className="py-4 text-right text-sm font-bold tabular-nums">{formatMoney(row.amount, row.currency)}</TableCell>
             <TableCell className="py-4 pr-5">{trip.canEditSettings && row.status === "pending" ? <div className="flex justify-end gap-2"><Button size="sm" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>{action.isPending ? <Spinner /> : "Approve"}</Button><Button size="sm" variant="outline" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => { setRejecting(row); setReason(""); setRejectError("") }}>Reject</Button><Button size="sm" variant="ghost" className="h-auto px-2 py-1 text-xs font-semibold text-destructive hover:text-destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>{action.isPending ? <Spinner /> : "Delete"}</Button></div> : null}</TableCell>
           </TableRow>)}</TableBody>
         </Table>
@@ -113,7 +115,7 @@ export function SettlementsPage() {
     ) : <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-10 text-center text-[13px] text-muted-foreground">No settlements yet. Once someone pays back, record it here.</div>}
 
     <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectError("") } }}>
-      <DialogContent className="rounded-[20px] sm:max-w-md"><DialogHeader><DialogTitle className="font-heading text-[19px] font-extrabold">Reject this settlement</DialogTitle><DialogDescription>{rejecting ? `${names.get(rejecting.fromUserId)} → ${names.get(rejecting.toUserId)} · ${rejecting.currency} ${rejecting.amount}` : ""}</DialogDescription></DialogHeader>
+      <DialogContent className="rounded-[20px] sm:max-w-md"><DialogHeader><DialogTitle className="font-heading text-[19px] font-extrabold">Reject this settlement</DialogTitle><DialogDescription>{rejecting ? `${names.get(rejecting.fromUserId)} → ${names.get(rejecting.toUserId)} · ${formatMoney(rejecting.amount, rejecting.currency)}` : ""}</DialogDescription></DialogHeader>
         <form className="space-y-3" method="post" onSubmit={submitRejection}>
           <label className="space-y-1.5 text-sm font-semibold">Reason<Textarea required value={reason} onChange={(e) => { setReason(e.target.value); setRejectError("") }} placeholder="Tell the payer why this was rejected" /></label>
           {rejectError ? <p role="alert" className="text-sm text-destructive">{rejectError}</p> : null}
