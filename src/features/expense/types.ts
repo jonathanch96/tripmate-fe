@@ -9,6 +9,10 @@ export type ExpensePayload = {
   description: string
   amount: string
   currency: string
+  // What the payer's card or account actually showed, when it differs from `currency`. An empty
+  // string on chargedCurrency is the explicit "clear it" signal; omitting both leaves it as-is.
+  chargedAmount?: string
+  chargedCurrency?: string
   categoryId?: string | null
   splitType: SplitType
   payers: MoneyRow[]
@@ -25,6 +29,8 @@ export type Expense = {
   description: string
   amount: string
   currency: string
+  chargedAmount: string | null
+  chargedCurrency: string | null
   splitType: "equal" | "manual" | "item" | "percent" | "shares"
   status: "pending" | "approved" | "rejected"
   source: "manual" | "receipt"

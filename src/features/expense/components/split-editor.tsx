@@ -5,6 +5,7 @@ import Decimal from "decimal.js"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { participantName } from "@/lib/participant-name"
 import { cn } from "@/lib/utils"
 import type { MoneyRow, SplitType } from "@/features/expense/types"
 import type { Participant } from "@/features/trip/types"
@@ -107,32 +108,32 @@ export function SplitEditor({ amount, currency, type, selected, manual, particip
           const checked = selected.includes(participant.userId)
           return <label className="flex items-center gap-3 border-b py-2.5 last:border-0" key={participant.userId}>
             <Checkbox checked={checked} onCheckedChange={() => onSelected(checked ? selected.filter((id) => id !== participant.userId) : [...selected, participant.userId])} />
-            <span className="flex-1 text-sm font-medium">{participant.user?.name ?? participant.user?.email ?? "Participant"}</span>
+            <span className="flex-1 text-sm font-medium">{participantName(participant)}</span>
             <span className="text-sm font-semibold tabular-nums">{checked ? money(new Decimal(preview.get(participant.userId) ?? 0), currency) : "—"}</span>
           </label>
         }) : null}
         {type === "manual" ? participants.map((participant) => {
           const row = manual.find((item) => item.userId === participant.userId) ?? { userId: participant.userId, amount: "0" }
           return <div className="flex items-center gap-3 border-b py-2.5 last:border-0" key={participant.userId}>
-            <span className="flex-1 text-sm font-medium">{participant.user?.name ?? participant.user?.email ?? "Participant"}</span>
-            <Input className="w-24 text-right" aria-label={`Split for ${participant.user?.name ?? participant.userId}`} value={row.amount} inputMode="decimal" placeholder="0.00" onChange={(event) => onManual([...manual.filter((item) => item.userId !== participant.userId), { userId: participant.userId, amount: event.target.value }])} />
+            <span className="flex-1 text-sm font-medium">{participantName(participant)}</span>
+            <Input className="w-24 text-right" aria-label={`Split for ${participantName(participant)}`} value={row.amount} inputMode="decimal" placeholder="0.00" onChange={(event) => onManual([...manual.filter((item) => item.userId !== participant.userId), { userId: participant.userId, amount: event.target.value }])} />
           </div>
         }) : null}
         {type === "percent" || type === "shares" ? participants.map((participant) => {
           const row = manual.find((item) => item.userId === participant.userId)
           return (
             <div className="flex items-center gap-3 border-b py-2.5 last:border-0" key={participant.userId}>
-              <span className="flex-1 text-sm font-medium">{participant.user?.name ?? participant.user?.email ?? "Participant"}</span>
+              <span className="flex-1 text-sm font-medium">{participantName(participant)}</span>
               <Input
                 className="w-20 text-right"
-                aria-label={`${type === "percent" ? "Percent" : "Shares"} for ${participant.user?.name ?? participant.userId}`}
+                aria-label={`${type === "percent" ? "Percent" : "Shares"} for ${participantName(participant)}`}
                 value={row?.weight ?? ""}
                 inputMode="decimal"
                 placeholder={type === "percent" ? "0%" : "0"}
                 onChange={(event) => setWeight(participant.userId, event.target.value)}
               />
               <span className="w-20 text-right text-sm font-semibold tabular-nums">
-                {type === "shares" ? "" : money(new Decimal(weightPreview.get(participant.userId) ?? 0), currency)}
+                {money(new Decimal(weightPreview.get(participant.userId) ?? 0), currency)}
               </span>
             </div>
           )

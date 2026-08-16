@@ -32,6 +32,7 @@ import {
 import { useTrip } from "@/features/trip/trip-context"
 import type { Invitation, Participant, Trip } from "@/features/trip/types"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
+import { participantName } from "@/lib/participant-name"
 import { categoryColorFor } from "@/lib/category-colors"
 import { apiFetch } from "@/lib/api-client"
 import { apiErrorMessage, ApiError } from "@/lib/envelope"
@@ -117,6 +118,55 @@ function BankEditor({
           {form.formState.errors.accountNumber.message}
         </p>
       ) : null}
+    </form>
+  )
+}
+
+function NameEditor({
+  code,
+  participant,
+  onClose,
+}: {
+  code: string
+  participant: Participant
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [value, setValue] = useState(participant.displayName ?? "")
+  const mutation = useMutation({
+    mutationFn: async (displayName: string) => {
+      const body = participantUpdateSchema.parse({ displayName })
+      const response = await apiFetch<Participant>(
+        `/api/trips/${code}/participants/${participant.id}`,
+        { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+      )
+      if (!response.data) throw new Error("The participant response was empty")
+      return response.data
+    },
+    onSuccess: async () => {
+      toast.success("Name updated")
+      await queryClient.invalidateQueries({ queryKey: qk.participants(code) })
+      onClose()
+    },
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not update name")),
+  })
+
+  return (
+    <form
+      className="mt-3 flex items-center gap-2"
+      method="post"
+      onSubmit={(event) => { event.preventDefault(); mutation.mutate(value) }}
+    >
+      <Input
+        aria-label={`Trip nickname for ${participant.user?.name ?? participant.user?.email ?? "this participant"}`}
+        placeholder={participant.user?.name || participant.user?.email || "Display name"}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        maxLength={120}
+        autoFocus
+      />
+      <Button type="submit" size="sm" disabled={mutation.isPending}>{mutation.isPending ? <Spinner /> : "Save"}</Button>
+      <Button type="button" size="sm" variant="outline" onClick={onClose}>Cancel</Button>
     </form>
   )
 }
@@ -258,7 +308,8 @@ function MembersSection({
   const queryClient = useQueryClient()
   const [email, setEmail] = useState("")
   const [link, setLink] = useState("")
-  const [editingParticipant, setEditingParticipant] = useState<string | null>(null)
+  const [editingBank, setEditingBank] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState<string | null>(null)
 
   const invitations = useQuery({
     queryKey: qk.invitations(trip.code),
@@ -293,34 +344,51 @@ function MembersSection({
       <h3 className="mb-3 font-heading text-[15px] font-extrabold">Members</h3>
       <div className="mb-8 rounded-[14px] border border-border bg-white px-5">
         {participants.map((participant) => {
-          const name = participant.user?.name ?? participant.user?.email ?? "Participant"
-          const mayEditBank = trip.canEditSettings || participant.userId === session?.user?.id
+          const name = participantName(participant)
+          const realName = participant.user?.name ?? participant.user?.email ?? "Participant"
+          const mayEdit = trip.canEditSettings || participant.userId === session?.user?.id
           return (
             <div key={participant.id} className="border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
               <div className="flex items-center gap-3.5">
                 <Avatar size="sm"><AvatarFallback className={avatarColorFor(name)}>{initialsOf(name)}</AvatarFallback></Avatar>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{participant.user?.email}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {name}
+                    {mayEdit ? (
+                      <button
+                        type="button"
+                        className="ml-2 text-xs font-semibold text-primary hover:underline"
+                        onClick={() => setEditingName(participant.id)}
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {participant.displayName ? `${realName} · ${participant.user?.email}` : participant.user?.email}
+                  </p>
                 </div>
                 {participant.user && !participant.user.hasAccount ? (
                   <Badge className="shrink-0 bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="Invited — can be assigned to expenses, but hasn't signed in yet">Pending</Badge>
                 ) : null}
                 <Badge className="shrink-0 bg-muted text-muted-foreground capitalize">{roleLabel(participant.role)}</Badge>
-                {mayEditBank ? (
+                {mayEdit ? (
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-auto shrink-0 rounded-[7px] px-2.5 py-1 text-xs font-semibold"
                     aria-label={`Edit bank details for ${name}`}
-                    onClick={() => setEditingParticipant(participant.id)}
+                    onClick={() => setEditingBank(participant.id)}
                   >
                     Edit bank
                   </Button>
                 ) : null}
               </div>
-              {editingParticipant === participant.id ? (
-                <BankEditor code={trip.code} participant={participant} onClose={() => setEditingParticipant(null)} />
+              {editingName === participant.id ? (
+                <NameEditor code={trip.code} participant={participant} onClose={() => setEditingName(null)} />
+              ) : null}
+              {editingBank === participant.id ? (
+                <BankEditor code={trip.code} participant={participant} onClose={() => setEditingBank(null)} />
               ) : null}
             </div>
           )
@@ -330,7 +398,7 @@ function MembersSection({
         <>
           <h3 className="mb-3 font-heading text-[15px] font-extrabold">Invite people</h3>
           <div className="mb-3.5 flex max-w-lg gap-2.5">
-            <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="email@example.com" />
+            <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
             <Button className="font-bold" disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>{invitationMutation.isPending ? <Spinner /> : "Send invite"}</Button>
           </div>
           {link ? (

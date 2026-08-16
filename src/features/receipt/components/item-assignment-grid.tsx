@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import type { ReceiptItem } from "@/features/receipt/types"
 import type { Participant } from "@/features/trip/types"
-
-const name = (participant: Participant) => participant.user?.name ?? participant.user?.email ?? "Participant"
+import { participantName as name } from "@/lib/participant-name"
 export function ItemAssignmentGrid({ items, participants, pending, onChange }: { items: ReceiptItem[]; participants: Participant[]; pending: boolean; onChange: (items: ReceiptItem[]) => void }) {
   function replace(itemId: string, userIds: string[]) { onChange(items.map((item) => item.id === itemId ? { ...item, assigneeIds: userIds } : item)) }
   function toggle(item: ReceiptItem, userId: string) { replace(item.id, item.assigneeIds.includes(userId) ? item.assigneeIds.filter((id) => id !== userId) : [...item.assigneeIds, userId]) }

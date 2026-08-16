@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { categoryColorFor } from "@/lib/category-colors"
+import { participantNameMap } from "@/lib/participant-name"
 import { cn } from "@/lib/utils"
 import type { Expense, ExpenseCategory } from "@/features/expense/types"
+import type { Participant } from "@/features/trip/types"
 
 const SPLIT_LABEL: Record<Expense["splitType"], string> = {
   equal: "Equal", manual: "Exact", item: "Itemized", percent: "Percent", shares: "Shares",
@@ -16,7 +18,8 @@ const STATUS_VARIANT: Record<Expense["status"], "outline" | "secondary" | "destr
   pending: "secondary", approved: "outline", rejected: "destructive",
 }
 
-export function ExpenseTable({ expenses, categories, pendingAction, hasAnyExpenses = true, onEdit, onDelete, onApprove, onReject }: { expenses: Expense[]; categories: ExpenseCategory[]; pendingAction: boolean; hasAnyExpenses?: boolean; onEdit: (expense: Expense) => void; onDelete: (expense: Expense) => void; onApprove: (expense: Expense) => void; onReject: (expense: Expense) => void }) {
+export function ExpenseTable({ expenses, categories, participants, pendingAction, hasAnyExpenses = true, onEdit, onDelete, onApprove, onReject }: { expenses: Expense[]; categories: ExpenseCategory[]; participants: Participant[]; pendingAction: boolean; hasAnyExpenses?: boolean; onEdit: (expense: Expense) => void; onDelete: (expense: Expense) => void; onApprove: (expense: Expense) => void; onReject: (expense: Expense) => void }) {
+  const names = participantNameMap(participants)
   if (!expenses.length) return (
     <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-16 text-center">
       <p className="mb-1.5 text-[15px] font-bold">No expenses found</p>
@@ -44,7 +47,7 @@ export function ExpenseTable({ expenses, categories, pendingAction, hasAnyExpens
             <TableCell className="py-4 pl-5 text-[13px] whitespace-nowrap text-muted-foreground">{expense.expenseDate}</TableCell>
             <TableCell className="py-4">
               <div className="text-sm font-semibold">{expense.description}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">Paid by {expense.payers.map((payer) => payer.user?.name ?? payer.userId.slice(0, 8)).join(", ")}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">Paid by {expense.payers.map((payer) => names.get(payer.userId) ?? payer.user?.name ?? payer.userId.slice(0, 8)).join(", ")}</div>
             </TableCell>
             <TableCell className="py-4">{categoryName ? <span className={cn("inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-bold", categoryColorFor(categoryName))}>{categoryName}</span> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
             <TableCell className="py-4 text-[13px] text-muted-foreground">{SPLIT_LABEL[expense.splitType]}</TableCell>

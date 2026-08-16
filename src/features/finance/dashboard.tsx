@@ -20,6 +20,7 @@ import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { categoryColorFor } from "@/lib/category-colors"
 import { apiErrorMessage } from "@/lib/envelope"
+import { participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
 
@@ -87,6 +88,8 @@ export function Dashboard() {
     return converted ? `≈ ${money(converted.abs().toFixed(displayScale(secondaryCurrency)), secondaryCurrency)}` : null
   }
   const categoryName = (id: string | null) => categories.data?.find((category) => category.id === id)?.name ?? "Other"
+  const names = participantNameMap(participants)
+  const nameFor = (userId: string, fallback?: string | null) => names.get(userId) ?? fallback ?? "Participant"
 
   return (
     <section>
@@ -140,24 +143,40 @@ export function Dashboard() {
         </div>
       </div>
 
-      <h3 className="mb-3.5 font-heading text-[15px] font-extrabold">Balances</h3>
+      <h3 className="mb-1 font-heading text-[15px] font-extrabold">Who owes who</h3>
+      <p className="mb-3.5 text-[13px] text-muted-foreground">Fewest possible payments to settle everyone up.</p>
       <div className="mb-8 rounded-[14px] border border-border bg-white px-5">
         {result.balances.map((row) => {
           const value = new Decimal(row.netBalance), owed = !value.isNegative()
           const settled = value.abs().lessThan("0.5")
           return (
             <div key={row.userId} className="flex items-center gap-3.5 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
-              <span className="w-[130px] shrink-0 truncate text-sm font-semibold">{row.user.name || row.user.email}</span>
+              <span className="w-[130px] shrink-0 truncate text-sm font-semibold">{nameFor(row.userId, row.user.name || row.user.email)}</span>
               <BalanceBar fraction={Math.abs(value.toNumber()) / maxBalance} owed={owed} />
               <div className="w-[170px] shrink-0 text-right">
                 <span className={cn("text-[13px] font-bold", settled ? "text-muted-foreground" : owed ? "text-success" : "text-destructive")}>
-                  {settled ? "settled up" : `${owed ? "gets back " : "owes "}${money(value.abs().toFixed(scale), result.baseCurrency)}`}
+                  {settled ? "settled up" : `${owed ? "is owed " : "owes "}${money(value.abs().toFixed(scale), result.baseCurrency)}`}
                 </span>
                 {!settled ? <p className="mt-0.5 text-[11px] text-muted-foreground">{secondaryLabel(value.abs())}</p> : null}
               </div>
             </div>
           )
         })}
+        {result.debts.length ? (
+          <div className="py-3.5">
+            <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Suggested transfers</p>
+            <div className="space-y-2.5">
+              {result.debts.map((debt, index) => (
+                <div key={index} className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">{nameFor(debt.fromUserId)} → {nameFor(debt.toUserId)}</span>
+                  <span className="text-sm font-bold tabular-nums">{money(debt.amount, debt.currency)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="py-3.5 text-[13px] text-muted-foreground">Nothing to pay or collect.</p>
+        )}
       </div>
 
       <div className="mb-3.5 flex items-baseline justify-between">
@@ -168,7 +187,7 @@ export function Dashboard() {
         <div className="rounded-[14px] border border-border bg-white px-5">
           {activity.data.map((expense) => {
             const secondary = expense.currency === trip.baseCurrency ? secondaryLabel(expense.amount) : null
-            const payersLabel = expense.payers.map((payer) => payer.user?.name?.split(" ")[0]).filter(Boolean).join(" & ")
+            const payersLabel = expense.payers.map((payer) => nameFor(payer.userId, payer.user?.name).split(" ")[0]).filter(Boolean).join(" & ")
             return (
               <div key={expense.id} className="flex items-center justify-between gap-3 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
                 <div className="flex min-w-0 items-center gap-2.5">

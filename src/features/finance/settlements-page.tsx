@@ -15,6 +15,7 @@ import type { BalanceResult, Rate, Settlement, Transfer } from "@/features/finan
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
+import { participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
 
 type Draft = { fromUserId: string; toUserId: string; amount: string; currency: string; method: "cash" | "bank_transfer"; note: string }
@@ -46,7 +47,7 @@ export function SettlementsPage() {
     // planner has no idea the click did nothing.
     onError: (error) => { const message = error instanceof ApiError ? error.message : "The settlement could not be updated."; if (rejecting) setRejectError(message); else setActionError(message) },
   })
-  const names = new Map(participants.map((p) => [p.userId, p.user?.name ?? p.user?.email ?? "Participant"]))
+  const names = participantNameMap(participants)
   const recipient = participants.find((p) => p.userId === draft.toUserId)
   function prefill(debt: Transfer) { setDraft({ ...draft, fromUserId: debt.fromUserId, toUserId: debt.toUserId, amount: debt.amount, currency: debt.currency }); setFormError(""); setRecordOpen(true) }
   function submit(event: FormEvent) { event.preventDefault(); setFormError(""); create.mutate() }
@@ -100,8 +101,8 @@ export function SettlementsPage() {
             <TableHead className="h-auto py-3 pr-5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Actions</TableHead>
           </TableRow></TableHeader>
           <TableBody>{history.data.map((row) => <TableRow key={row.id} className="border-b-[oklch(0.95_0.006_60)]">
-            <TableCell className="py-4 pl-5 text-sm">{row.fromUser?.name ?? names.get(row.fromUserId)}</TableCell>
-            <TableCell className="py-4 text-sm">{row.toUser?.name ?? names.get(row.toUserId)}</TableCell>
+            <TableCell className="py-4 pl-5 text-sm">{names.get(row.fromUserId) ?? row.fromUser?.name ?? "Participant"}</TableCell>
+            <TableCell className="py-4 text-sm">{names.get(row.toUserId) ?? row.toUser?.name ?? "Participant"}</TableCell>
             <TableCell className="py-4 text-sm text-muted-foreground">{row.method === "bank_transfer" ? "Bank transfer" : "Cash"}</TableCell>
             <TableCell className="py-4"><Badge variant={row.status === "pending" ? "secondary" : row.status === "rejected" ? "destructive" : "outline"}>{row.status}</Badge></TableCell>
             <TableCell className="py-4 text-right text-sm font-bold tabular-nums">{row.currency} {row.amount}</TableCell>

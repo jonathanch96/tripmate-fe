@@ -5,12 +5,20 @@ const amount = z.string().trim().regex(/^\d+(?:\.\d{1,6})?$/, "Enter a valid amo
 const row = z.object({ userId: z.uuid(), amount, weight: amount.optional() }).strict()
 const splitTypeSchema = z.enum(["equal", "manual", "percent", "shares"])
 
+// "Actually charged in" is optional and, once set, can be a currency-only memo (chargedAmount
+// left blank) or paired with an amount. An empty string is the explicit "clear it" sentinel the
+// backend expects on update - distinct from omitting the field, which leaves it unchanged.
+const chargedCurrency = z.string().trim().transform((value) => value.toUpperCase()).refine((value) => value === "" || value.length === 3, "Enter a 3-letter currency code")
+const chargedAmount = z.string().trim().refine((value) => value === "" || /^\d+(?:\.\d{1,6})?$/.test(value), "Enter a valid amount")
+
 export const expenseCreateSchema = z
   .object({
     expenseDate: z.iso.date(),
     description: z.string().trim().min(1).max(255),
     amount,
     currency: z.string().length(3).transform((value) => value.toUpperCase()),
+    chargedAmount: chargedAmount.optional(),
+    chargedCurrency: chargedCurrency.optional(),
     categoryId: z.uuid().nullable().optional(),
     splitType: splitTypeSchema,
     payers: z.array(row).min(1),
@@ -28,6 +36,7 @@ export const expenseCreateSchema = z
     } catch {
       return
     }
+    if (value.chargedAmount && !value.chargedCurrency) context.addIssue({ code: "custom", path: ["chargedCurrency"], message: "Choose a currency for the actually-charged amount" })
     if (!payerTotal.equals(total)) context.addIssue({ code: "custom", path: ["payers"], message: "Payers must sum to the expense amount" })
     if (new Set(value.payers.map((payer) => payer.userId)).size !== value.payers.length) context.addIssue({ code: "custom", path: ["payers"], message: "Each payer can appear only once" })
     if (value.splitType === "equal" && !value.participants?.length) context.addIssue({ code: "custom", path: ["participants"], message: "Choose at least one participant" })
@@ -61,11 +70,15 @@ export const expenseCreateSchema = z
 
 export const expenseUpdateSchema = z.object({
   expenseDate: z.iso.date().optional(), description: z.string().trim().min(1).max(255).optional(),
-  amount: amount.optional(), currency: z.string().length(3).optional(), categoryId: z.uuid().nullable().optional(),
+  amount: amount.optional(), currency: z.string().length(3).optional(),
+  chargedAmount: chargedAmount.optional(), chargedCurrency: chargedCurrency.optional(),
+  categoryId: z.uuid().nullable().optional(),
   splitType: splitTypeSchema.optional(),
   payers: z.array(row).min(1).optional(), participants: z.array(z.uuid()).optional(), splits: z.array(row).optional(),
   note: z.string().max(2000).nullable().optional(), version: z.number().int().positive(),
-}).strict()
+}).strict().superRefine((value, context) => {
+  if (value.chargedAmount && !value.chargedCurrency) context.addIssue({ code: "custom", path: ["chargedCurrency"], message: "Choose a currency for the actually-charged amount" })
+})
 
 export const expenseRejectSchema = z.object({ reason: z.string().trim().min(1).max(500) }).strict()
 

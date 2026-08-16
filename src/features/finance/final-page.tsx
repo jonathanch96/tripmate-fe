@@ -14,6 +14,7 @@ import { MissingRateState } from "@/features/finance/missing-rate-state"
 import type { FinalPlan, Rate } from "@/features/finance/types"
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
+import { participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
 
 export function FinalPage() {
@@ -29,7 +30,7 @@ export function FinalPage() {
   const refresh = async () => Promise.all([client.invalidateQueries({ queryKey: qk.rates(trip.code) }), client.invalidateQueries({ queryKey: qk.finalSettlement(trip.code) }), client.invalidateQueries({ queryKey: qk.balances(trip.code) })])
   const setRate = useMutation({ mutationFn: (draft: RateDraft) => apiFetch(`/api/trips/${trip.code}/exchange-rates`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) }), onSuccess: refresh })
   const finalize = useMutation({ mutationFn: (action: "finalize" | "unfinalize") => apiFetch(`/api/trips/${trip.code}/${action}`, { method: "POST" }), onSuccess: async () => { await refresh(); router.refresh() } })
-  const names = new Map(participants.map((p) => [p.userId, p.user?.name ?? p.user?.email ?? "Participant"]))
+  const names = participantNameMap(participants)
   const update = (index: number, patch: Partial<RateDraft>) => setDrafts(drafts.map((draft, i) => (i === index ? { ...draft, ...patch } : draft)))
   const stillMissing = requested.filter((pair) => !rates.data?.some((rate) => `${rate.from}→${rate.to}` === pair))
   return <section className="space-y-6"><div className="flex items-center justify-between"><div><h2 className="font-heading text-xl font-semibold">Final settlement</h2><p className="text-sm text-muted-foreground">Lock rates and finish with the smallest practical transfer plan.</p></div>{trip.isFinalized ? <Badge>Finalized</Badge> : null}</div>

@@ -43,9 +43,13 @@ export const participantUpdateSchema = z
   .object({
     bankInfo: participantBankSchema.optional(),
     role: z.enum(["planner", "participant"]).optional(),
+    displayName: z.string().trim().max(120).optional(),
   })
   .strict()
-  .refine((value) => value.bankInfo !== undefined || value.role !== undefined, "An update is required")
+  .refine(
+    (value) => value.bankInfo !== undefined || value.role !== undefined || value.displayName !== undefined,
+    "An update is required",
+  )
 
 export const invitationCreateSchema = z.object({ email: z.email().max(255) }).strict()
 

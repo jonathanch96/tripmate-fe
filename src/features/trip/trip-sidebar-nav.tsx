@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors";
+import { participantName } from "@/lib/participant-name";
 import type { Participant, Trip } from "@/features/trip/types";
 
 const NAV_ITEMS = [
@@ -65,7 +66,7 @@ export function TripSidebarNav({
       <div className="mt-auto flex flex-col gap-3.5">
         <AvatarGroup>
           {visible.map((participant) => {
-            const name = participant.user?.name ?? participant.user?.email ?? "?";
+            const name = participantName(participant);
             return (
               <Avatar key={participant.id} size="sm" title={name}>
                 <AvatarFallback className={avatarColorFor(name)}>{initialsOf(name)}</AvatarFallback>

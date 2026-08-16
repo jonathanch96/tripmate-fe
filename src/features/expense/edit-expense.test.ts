@@ -6,7 +6,7 @@ import type { Expense } from "@/features/expense/types"
 
 const expense: Expense = {
   id: crypto.randomUUID(), tripId: crypto.randomUUID(), categoryId: null, expenseDate: "2026-08-06",
-  description: "Dinner", amount: "12000.00", currency: "PHP", splitType: "manual",
+  description: "Dinner", amount: "12000.00", currency: "PHP", chargedAmount: null, chargedCurrency: null, splitType: "manual",
   status: "approved", source: "manual", note: "Team meal", canEdit: true, canDelete: true, canApprove: false, canReject: false,
   version: 3, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   payers: [{ userId: crypto.randomUUID(), amount: "8000.00" }, { userId: crypto.randomUUID(), amount: "4000.00" }],

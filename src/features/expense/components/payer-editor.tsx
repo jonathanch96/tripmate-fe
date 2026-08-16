@@ -6,6 +6,7 @@ import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { participantName } from "@/lib/participant-name"
 import { cn } from "@/lib/utils"
 import type { MoneyRow } from "@/features/expense/types"
 import type { Participant } from "@/features/trip/types"
@@ -23,7 +24,7 @@ export function PayerEditor({ amount, rows, participants, onChange }: { amount: 
         <div className="flex gap-2" key={`${row.userId}-${index}`}>
           <NativeSelect className="flex-[2]" aria-label={`Payer ${index + 1}`} value={row.userId} onChange={(event) => onChange(rows.map((item, i) => i === index ? { ...item, userId: event.target.value } : item))}>
             <NativeSelectOption value="">Choose payer</NativeSelectOption>
-            {participants.map((participant) => <NativeSelectOption key={participant.userId} value={participant.userId}>{participant.user?.name ?? participant.user?.email ?? "Participant"}</NativeSelectOption>)}
+            {participants.map((participant) => <NativeSelectOption key={participant.userId} value={participant.userId}>{participantName(participant)}</NativeSelectOption>)}
           </NativeSelect>
           <Input className="flex-1" aria-label={`Payer ${index + 1} amount`} inputMode="decimal" placeholder="0.00" value={row.amount} onChange={(event) => onChange(rows.map((item, i) => i === index ? { ...item, amount: event.target.value } : item))} />
           {rows.length > 1 ? (
