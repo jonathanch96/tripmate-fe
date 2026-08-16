@@ -38,9 +38,9 @@ export function SettlementsPage() {
   const create = useMutation({
     mutationFn: () => apiFetch(`/api/trips/${trip.code}/settlements`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) }),
     onSuccess: async () => { setFormError(""); setDraft(empty); setRecordOpen(false); await refresh() },
-    // These two stay inline in the dialog rather than becoming toasts: they tell the user what to
-    // change about this settlement, so they have to sit next to the fields.
-    onError: (error) => { const code = error instanceof ApiError ? error.envelope.code : ""; setFormError(code === "SETTLEMENT_EXCEEDS_DEBT" ? error.message : code === "SETTLEMENT_NOT_ALLOWED_YET" ? "This trip does not allow settlements before its end date." : "The settlement could not be recorded.") },
+    // This stays inline in the dialog rather than becoming a toast: it tells the user what to
+    // change about this settlement, so it has to sit next to the fields.
+    onError: (error) => { const code = error instanceof ApiError ? error.envelope.code : ""; setFormError(code === "SETTLEMENT_NOT_ALLOWED_YET" ? "This trip does not allow settlements before its end date." : "The settlement could not be recorded.") },
   })
   const action = useMutation({
     mutationFn: ({ row, action, body }: { row: Settlement; action: "approve" | "reject" | "delete"; body?: { reason: string } }) => apiFetch(`/api/trips/${trip.code}/settlements/${row.id}${action === "delete" ? "" : `/${action}`}`, { method: action === "delete" ? "DELETE" : "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined }),

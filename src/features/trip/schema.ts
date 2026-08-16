@@ -13,6 +13,7 @@ const settingsFields = {
 export const tripSchema = z
   .object({
     ...settingsFields,
+    country: z.string().trim().max(80).optional(),
     startDate: z.string().min(1),
     endDate: z.string().min(1),
   })

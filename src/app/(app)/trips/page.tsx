@@ -2,10 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import type { Invitation, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
@@ -14,10 +16,15 @@ import { qk } from "@/lib/query-keys"
 
 export default function TripsPage() {
   const queryClient = useQueryClient()
+  const [search, setSearch] = useState("")
   const trips = useQuery({
     queryKey: qk.trips(),
     queryFn: async () => (await apiFetch<Trip[]>("/api/trips")).data ?? [],
   })
+  const query = search.trim().toLowerCase()
+  const visibleTrips = query
+    ? trips.data?.filter((trip) => `${trip.name} ${trip.code} ${trip.country ?? ""}`.toLowerCase().includes(query))
+    : trips.data
   const invitations = useQuery({
     queryKey: qk.myInvitations(),
     queryFn: async () => (await apiFetch<Invitation[]>("/api/invitations/me")).data ?? [],
@@ -36,13 +43,25 @@ export default function TripsPage() {
 
   return (
     <section>
-      <div className="mb-7 flex items-end justify-between">
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-3.5">
         <div>
           <h1 className="font-heading text-[28px] font-extrabold">My trips</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">Pick a trip to see expenses and balances.</p>
         </div>
-        <Link href="/trip/create" className={buttonVariants({ className: "font-bold" })}>+ Create trip</Link>
+        <div className="flex flex-wrap gap-2.5">
+          <Link href="/analytics" className={buttonVariants({ variant: "outline", className: "font-bold" })}>📊 Analytics</Link>
+          <Link href="/trip/create" className={buttonVariants({ className: "font-bold" })}>+ Create trip</Link>
+        </div>
       </div>
+      {trips.data?.length ? (
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search trips by name, code, or country…"
+          className="mb-5 max-w-sm"
+          aria-label="Search trips"
+        />
+      ) : null}
       {invitations.data?.length ? (
         <Card className="mb-6 border-primary/20 bg-accent/40">
           <CardHeader><CardTitle className="text-base">You were invited</CardTitle></CardHeader>
@@ -64,9 +83,9 @@ export default function TripsPage() {
       ) : null}
       {trips.isLoading ? (
         <LoadingState label="Loading your trips…" className="justify-center" />
-      ) : trips.data?.length ? (
+      ) : visibleTrips?.length ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
-          {trips.data.map((trip) => (
+          {visibleTrips.map((trip) => (
             <Link key={trip.id} href={`/trip/${trip.code}`} className="block">
               <Card className="h-full gap-0 rounded-2xl p-6 shadow-none transition-shadow hover:shadow-[0_8px_24px_oklch(0.2_0.02_60_/_0.08)]">
                 <div className="flex items-start justify-between">
@@ -75,6 +94,11 @@ export default function TripsPage() {
                     <span className="text-xs tracking-wide text-muted-foreground">{trip.code}</span>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                    {trip.country ? (
+                      <span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                        {trip.country}
+                      </span>
+                    ) : null}
                     {(trip.currencies?.length ? trip.currencies : [trip.baseCurrency]).map((code) => (
                       <span key={code} className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
                         {code}
@@ -88,6 +112,11 @@ export default function TripsPage() {
               </Card>
             </Link>
           ))}
+        </div>
+      ) : trips.data?.length ? (
+        <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-16 text-center">
+          <p className="mb-1.5 text-[15px] font-bold">No trips match &ldquo;{search}&rdquo;</p>
+          <p className="text-[13px] text-muted-foreground">Try a different name, code, or country.</p>
         </div>
       ) : (
         <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-16 text-center">

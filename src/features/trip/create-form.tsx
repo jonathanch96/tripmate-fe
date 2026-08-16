@@ -11,6 +11,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { tripSchema, type TripInput } from "@/features/trip/schema";
 import type { Trip } from "@/features/trip/types";
 import { apiFetch } from "@/lib/api-client";
+import { COUNTRIES } from "@/lib/countries";
 import { SUPPORTED_CURRENCIES } from "@/lib/currencies";
 
 export function CreateTripForm() {
@@ -20,6 +21,7 @@ export function CreateTripForm() {
     defaultValues: {
       name: "",
       baseCurrency: "USD",
+      country: "",
       startDate: "",
       endDate: "",
       editPermission: "everyone",
@@ -65,6 +67,16 @@ export function CreateTripForm() {
             <NativeSelectOption key={code} value={code}>{code}</NativeSelectOption>
           ))}
         </NativeSelect>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="trip-country">Country (optional)</Label>
+        <NativeSelect id="trip-country" className="w-full" {...form.register("country")}>
+          <NativeSelectOption value="">Not set</NativeSelectOption>
+          {COUNTRIES.map((country) => (
+            <NativeSelectOption key={country} value={country}>{country}</NativeSelectOption>
+          ))}
+        </NativeSelect>
+        <p className="text-xs text-muted-foreground">Only used to group trips on the analytics page.</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
