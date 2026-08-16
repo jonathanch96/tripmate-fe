@@ -1,10 +1,13 @@
 "use client"
 
+import { ChevronDownIcon } from "lucide-react"
 import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
 
 import { BrandMark } from "@/components/layout/brand-mark"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ChangePasswordDialog } from "@/features/auth/change-password-dialog"
 
 export function SiteHeader() {
   const { data: session, status } = useSession()
@@ -21,12 +24,19 @@ export function SiteHeader() {
               visitor should never see a sign-in prompt flash in their own header. */}
           {status === "loading" ? null : status === "authenticated" ? (
             <>
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                Hello, {session?.user?.name ?? session?.user?.email}
-              </span>
               <Link href="/trips" className={buttonVariants({ variant: "ghost", size: "sm" })}>My trips</Link>
               <Link href="/trip/create" className={buttonVariants({ size: "sm" })}>Create trip</Link>
-              <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/" })}>Sign out</Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5" })}>
+                  <span className="max-w-40 truncate">{session?.user?.name ?? session?.user?.email}</span>
+                  <ChevronDownIcon className="size-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <ChangePasswordDialog />
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>Sign out</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <Link href="/login" className={buttonVariants({ size: "sm" })}>Sign in</Link>

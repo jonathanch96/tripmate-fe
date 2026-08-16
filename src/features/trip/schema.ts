@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { passwordSchema } from "@/features/auth/schema"
+
 const settingsFields = {
   name: z.string().trim().min(1).max(160),
   baseCurrency: z.string().length(3).transform((value) => value.toUpperCase()),
@@ -52,7 +54,7 @@ export const participantUpdateSchema = z
     "An update is required",
   )
 
-export const invitationCreateSchema = z.object({ email: z.email().max(255) }).strict()
+export const invitationCreateSchema = z.object({ email: z.email().max(255), password: passwordSchema }).strict()
 
 export type TripInput = z.infer<typeof tripSchema>
 export type TripUpdateInput = z.infer<typeof tripUpdateSchema>

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import type Decimal from "decimal.js"
+import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
@@ -63,9 +64,17 @@ export function matchesSign(entry: LedgerEntry, sign: SignFilter): boolean {
 
 export function LedgerPage() {
   const { trip, participants } = useTrip()
+  const { data: session, status: sessionStatus } = useSession()
   const names = participantNameMap(participants)
-  const [memberId, setMemberId] = useState(participants[0]?.userId ?? "")
+  const [memberId, setMemberId] = useState("")
   const [againstId, setAgainstId] = useState("")
+  const defaultedMember = useRef(false)
+  useEffect(() => {
+    if (defaultedMember.current || sessionStatus === "loading") return
+    const mine = participants.find((participant) => participant.userId === session?.user?.id)
+    setMemberId(mine?.userId ?? participants[0]?.userId ?? "")
+    defaultedMember.current = true
+  }, [sessionStatus, session, participants])
   const [secondaryCurrency, setSecondaryCurrency] = useState("")
   const [sign, setSign] = useState<SignFilter>("all")
   const categories = useQuery({ queryKey: qk.expenseCategories(trip.code), queryFn: async () => (await listExpenseCategories(trip.code)).data ?? [] })

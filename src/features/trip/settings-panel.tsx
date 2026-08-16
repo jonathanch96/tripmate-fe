@@ -22,6 +22,7 @@ import {
   listExpenseCategories,
 } from "@/features/expense/category-api"
 import { TripCurrenciesManager } from "@/features/finance/trip-currencies-manager"
+import { passwordSchema } from "@/features/auth/schema"
 import {
   participantBankSchema,
   participantUpdateSchema,
@@ -36,6 +37,7 @@ import { participantName } from "@/lib/participant-name"
 import { categoryColorFor } from "@/lib/category-colors"
 import { apiFetch } from "@/lib/api-client"
 import { apiErrorMessage, ApiError } from "@/lib/envelope"
+import { generatePassword } from "@/lib/generate-password"
 import { qk } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
 
@@ -307,7 +309,10 @@ function MembersSection({
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   const [email, setEmail] = useState("")
-  const [link, setLink] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [sentLink, setSentLink] = useState("")
+  const [sentPassword, setSentPassword] = useState("")
   const [editingBank, setEditingBank] = useState<string | null>(null)
   const [editingName, setEditingName] = useState<string | null>(null)
 
@@ -323,15 +328,38 @@ function MembersSection({
       apiFetch<{ status: string; inviteLink?: string }>(`/api/trips/${trip.code}/invitations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, password }),
       }),
     onSuccess: (response) => {
-      if (response.data?.inviteLink) setLink(`${location.origin}${response.data.inviteLink}`)
+      if (response.data?.inviteLink) {
+        setSentLink(`${location.origin}${response.data.inviteLink}`)
+        setSentPassword(password)
+      }
       toast.success(response.data?.status === "added" ? "Participant added" : "Invitation created")
+      setEmail("")
+      setPassword("")
+      setConfirmPassword("")
       void queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) })
     },
     onError: (error) => toast.error(apiErrorMessage(error, "Could not create invitation")),
   })
+
+  function sendInvite() {
+    if (!email.trim()) {
+      toast.error("Enter an email address")
+      return
+    }
+    const parsed = passwordSchema.safeParse(password)
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Enter a valid password")
+      return
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords must match")
+      return
+    }
+    invitationMutation.mutate()
+  }
   const revokeMutation = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/trips/${trip.code}/invitations/${id}`, { method: "DELETE" }),
     onSuccess: async () => { toast.success("Invitation revoked"); await queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) }) },
@@ -368,8 +396,8 @@ function MembersSection({
                     {participant.displayName ? `${realName} · ${participant.user?.email}` : participant.user?.email}
                   </p>
                 </div>
-                {participant.user && !participant.user.hasAccount ? (
-                  <Badge className="shrink-0 bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="Invited — can be assigned to expenses, but hasn't signed in yet">Pending</Badge>
+                {participant.user && !participant.user.hasLoggedIn ? (
+                  <Badge className="shrink-0 bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="Invited — can be assigned to expenses, but hasn't signed in yet">Not logged in yet</Badge>
                 ) : null}
                 <Badge className="shrink-0 bg-muted text-muted-foreground capitalize">{roleLabel(participant.role)}</Badge>
                 {mayEdit ? (
@@ -397,21 +425,27 @@ function MembersSection({
       {trip.canEditSettings ? (
         <>
           <h3 className="mb-3 font-heading text-[15px] font-extrabold">Invite people</h3>
-          <div className="mb-3.5 flex max-w-lg gap-2.5">
+          <div className="mb-3.5 max-w-lg space-y-2.5">
             <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
-            <Button className="font-bold" disabled={invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>{invitationMutation.isPending ? <Spinner /> : "Send invite"}</Button>
+            <div className="flex gap-2.5">
+              <Input type="text" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password for them to sign in with" />
+              <Button type="button" variant="outline" className="shrink-0 font-bold" onClick={() => { const generated = generatePassword(); setPassword(generated); setConfirmPassword(generated) }}>Generate</Button>
+            </div>
+            <Input type="text" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
+            <Button className="font-bold" disabled={invitationMutation.isPending} onClick={sendInvite}>{invitationMutation.isPending ? <Spinner /> : "Send invite"}</Button>
           </div>
-          {link ? (
+          {sentLink ? (
             <div className="mb-3.5 max-w-lg space-y-1.5">
-              <p className="text-xs text-muted-foreground">Email delivery lands in a later release — share this link directly.</p>
-              <Input readOnly value={link} />
+              <p className="text-xs text-muted-foreground">Share this link and password with them directly.</p>
+              <Input readOnly value={sentLink} aria-label="Invite link" />
+              <Input readOnly value={sentPassword} aria-label="Invite password" />
             </div>
           ) : null}
           {pending.length ? (
             <div className="max-w-lg rounded-[14px] border border-border bg-white px-5">
               {pending.map((invitation) => (
                 <div key={invitation.id} className="flex items-center justify-between gap-2 border-b border-[oklch(0.95_0.006_60)] py-3 text-[13px] last:border-0">
-                  <span>{invitation.email} <span className="text-muted-foreground">· pending</span></span>
+                  <span>{invitation.email} {!invitation.hasLoggedIn ? <span className="text-muted-foreground">· Not logged in yet</span> : null}</span>
                   <button type="button" className="text-xs font-semibold text-destructive disabled:opacity-50" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>{revokeMutation.isPending ? <Spinner /> : "Revoke"}</button>
                 </div>
               ))}

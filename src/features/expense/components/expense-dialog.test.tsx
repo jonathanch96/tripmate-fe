@@ -18,8 +18,8 @@ const trip: Trip = {
 }
 
 const participants: Participant[] = [
-  { id: "p1", tripId: trip.id, userId: "u1", role: "planner", displayName: null, bankInfo: null, user: { id: "u1", name: "Jonathan", email: "jonathan@example.com", hasAccount: true } },
-  { id: "p2", tripId: trip.id, userId: "u2", role: "participant", displayName: null, bankInfo: null, user: { id: "u2", name: "Elisabeth", email: "elisabeth@example.com", hasAccount: true } },
+  { id: "p1", tripId: trip.id, userId: "u1", role: "planner", displayName: null, bankInfo: null, user: { id: "u1", name: "Jonathan", email: "jonathan@example.com", hasAccount: true, hasLoggedIn: true } },
+  { id: "p2", tripId: trip.id, userId: "u2", role: "participant", displayName: null, bankInfo: null, user: { id: "u2", name: "Elisabeth", email: "elisabeth@example.com", hasAccount: true, hasLoggedIn: true } },
 ]
 
 function Wrapper({ children }: { children: ReactNode }) {

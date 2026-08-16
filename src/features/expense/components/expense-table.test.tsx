@@ -18,7 +18,7 @@ const trip: Trip = {
 }
 
 const participants: Participant[] = [
-  { id: "p1", tripId: trip.id, userId: "u1", role: "planner", displayName: null, bankInfo: null, user: { id: "u1", name: "Jonathan", email: "jonathan@example.com", hasAccount: true } },
+  { id: "p1", tripId: trip.id, userId: "u1", role: "planner", displayName: null, bankInfo: null, user: { id: "u1", name: "Jonathan", email: "jonathan@example.com", hasAccount: true, hasLoggedIn: true } },
 ]
 
 function baseExpense(overrides: Partial<Expense>): Expense {
