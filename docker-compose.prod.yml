@@ -10,8 +10,10 @@ services:
       PORT: 3000
       BACKEND_BASE_URL: http://tripmate-backend:8080
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?set NEXTAUTH_SECRET in jblabs-tripmate-fe/.env.local}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?set NEXTAUTH_SECRET in tripmate-fe/.env}
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-TripMate}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     ports:
       - "${FRONTEND_BIND_ADDRESS:-0.0.0.0}:${FRONTEND_PORT:-3000}:3000"
     networks:
