@@ -12,4 +12,5 @@ export const qk = {
   finalSettlement: (tripCode: string) => [...qk.trip(tripCode), "final-settlement"] as const,
   settlements: (tripCode: string) => [...qk.trip(tripCode), "settlements"] as const,
   rates: (tripCode: string) => [...qk.trip(tripCode), "rates"] as const,
+  ledger: (tripCode: string) => [...qk.trip(tripCode), "ledger"] as const,
 }

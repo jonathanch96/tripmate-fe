@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "", label: "Overview" },
   { href: "/expenses", label: "Expenses" },
   { href: "/settlements", label: "Settlements" },
+  { href: "/ledger", label: "Ledger" },
   { href: "/final", label: "Final plan" },
   { href: "/settings", label: "Settings" },
 ] as const;

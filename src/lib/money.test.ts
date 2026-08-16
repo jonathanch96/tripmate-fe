@@ -19,6 +19,14 @@ describe("sanitizeMoneyInput", () => {
   it("passes plain numbers through unchanged", () => {
     expect(sanitizeMoneyInput("1500000")).toBe("1500000")
   })
+
+  it("preserves a leading minus sign for a signed value like a balance", () => {
+    expect(sanitizeMoneyInput("-45.50")).toBe("-45.50")
+  })
+
+  it("drops a minus that isn't at the start - it's noise, not a sign", () => {
+    expect(sanitizeMoneyInput("65-00")).toBe("6500")
+  })
 })
 
 describe("groupThousands", () => {
@@ -63,6 +71,10 @@ describe("safeDecimal", () => {
     expect(safeDecimal("").toString()).toBe("0")
     expect(safeDecimal(undefined).toString()).toBe("0")
     expect(safeDecimal(null).toString()).toBe("0")
+  })
+
+  it("keeps the sign of a negative value like a ledger balance", () => {
+    expect(safeDecimal("-45.50").toString()).toBe("-45.5")
   })
 })
 

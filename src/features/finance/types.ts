@@ -11,3 +11,24 @@ export type BalanceResult = {
 export type Settlement = { id: string; fromUserId: string; toUserId: string; amount: string; currency: string; method: "cash" | "bank_transfer"; status: "pending" | "approved" | "rejected"; note?: string | null; fromUser?: PublicUser | null; toUser?: PublicUser | null }
 export type Rate = { id: string; from: string; to: string; rate: string; isFinal: boolean; source: string }
 export type FinalPlan = { baseCurrency: string; transfers: Transfer[] }
+export type LedgerEntry = {
+  kind: "expense" | "settlement"
+  date: string
+  expenseId?: string | null
+  settlementId?: string | null
+  description: string
+  categoryId?: string | null
+  // Paid/share are only present for expense rows when not filtered against a specific member.
+  paid?: string | null
+  share?: string | null
+  counterpartyUserId?: string | null
+  delta: string
+  runningBalance: string
+}
+export type Ledger = {
+  baseCurrency: string
+  memberUserId: string
+  againstUserId?: string | null
+  entries: LedgerEntry[]
+  netBalance: string
+}

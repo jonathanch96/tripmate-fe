@@ -7,14 +7,17 @@ export function displayScale(currency: string): number {
   return ZERO_DECIMAL_CURRENCIES.has(currency) ? 0 : 2
 }
 
-// Strips everything but digits and a decimal point, so pasted content - a currency symbol from
-// Excel ("฿65.00"), thousand separators ("$1,234.56"), stray whitespace - never reaches decimal.js
-// unsanitized. Only the first "." encountered survives as the decimal separator.
+// Strips everything but a leading minus sign, digits and a decimal point, so pasted content - a
+// currency symbol from Excel ("฿65.00"), thousand separators ("$1,234.56"), stray whitespace -
+// never reaches decimal.js unsanitized. Only the first "." encountered survives as the decimal
+// separator. A minus only counts as a sign right at the start (e.g. a signed balance like
+// "-45.50"); one appearing anywhere else is just noise and is dropped like any other symbol.
 export function sanitizeMoneyInput(raw: string): string {
+  const negative = /^\s*-/.test(raw)
   const digitsAndDot = raw.replace(/[^\d.]/g, "")
   const firstDot = digitsAndDot.indexOf(".")
-  if (firstDot === -1) return digitsAndDot
-  return digitsAndDot.slice(0, firstDot + 1) + digitsAndDot.slice(firstDot + 1).replace(/\./g, "")
+  const cleaned = firstDot === -1 ? digitsAndDot : digitsAndDot.slice(0, firstDot + 1) + digitsAndDot.slice(firstDot + 1).replace(/\./g, "")
+  return negative && cleaned ? `-${cleaned}` : cleaned
 }
 
 // Counts the digit/decimal-point characters in a string - used to keep the caret in the right
