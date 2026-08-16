@@ -60,10 +60,19 @@ export const expenseCreateSchema = z
       else if (!weightTotal.equals(100)) context.addIssue({ code: "custom", path: ["splits"], message: "Percentages must sum to 100" })
     }
     if (value.splitType === "shares") {
-      // decimal.js treats zero as "positive" (non-negative sign), so a share count must be
-      // checked against greaterThan(0) rather than isPositive() to actually exclude zero.
-      if (!value.splits?.length || !value.splits.every((split) => split.weight && new Decimal(split.weight).greaterThan(0))) {
-        context.addIssue({ code: "custom", path: ["splits"], message: "Enter a positive number of shares for each participant" })
+      // A share count of 0 is allowed - it just means that participant sat this particular
+      // expense out - but every participant needs an explicit value, and at least one of them
+      // needs to be positive or there's nothing to allocate.
+      let shareTotal: Decimal
+      try {
+        shareTotal = (value.splits ?? []).reduce((sum, split) => sum.plus(split.weight ?? "0"), new Decimal(0))
+      } catch {
+        return
+      }
+      if (!value.splits?.length || !value.splits.every((split) => split.weight)) {
+        context.addIssue({ code: "custom", path: ["splits"], message: "Enter a number of shares for each participant" })
+      } else if (!shareTotal.greaterThan(0)) {
+        context.addIssue({ code: "custom", path: ["splits"], message: "At least one participant needs a positive number of shares" })
       }
     }
   })

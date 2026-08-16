@@ -40,7 +40,11 @@ describe("ExpenseDialog", () => {
 
   it("shows the computed shares split amount", async () => {
     render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
-    fireEvent.change(screen.getByLabelText(/amount \(thb\)/i), { target: { value: "1500000" } })
+    // Let the trip's rates load (and the default-currency effect settle) before pinning THB
+    // explicitly - this test is about share math, not currency defaulting.
+    await waitFor(() => expect(screen.getByLabelText("Currency").querySelector('option[value="IDR"]')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "THB" } })
+    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "1500000" } })
     fireEvent.click(screen.getByRole("button", { name: "Shares" }))
     fireEvent.change(screen.getByLabelText(/shares for jonathan/i), { target: { value: "5" } })
     fireEvent.change(screen.getByLabelText(/shares for elisabeth/i), { target: { value: "2" } })
@@ -48,20 +52,45 @@ describe("ExpenseDialog", () => {
     expect(screen.getByText("428571.43")).toBeTruthy()
   })
 
-  it("keeps the base amount and currency unchanged when toggling 'actually charged in'", async () => {
+  it("defaults a new expense to the trip's other saved currency instead of its base currency", async () => {
     render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
-    fireEvent.change(screen.getByLabelText(/amount \(thb\)/i), { target: { value: "1500" } })
-    fireEvent.click(await screen.findByText("+ I actually paid in a different currency"))
-    expect(screen.getByLabelText(/amount \(thb\)/i)).toHaveProperty("value", "1500")
-    fireEvent.change(screen.getByLabelText("Amount actually charged"), { target: { value: "675000" } })
-    expect(screen.getByLabelText(/amount \(thb\)/i)).toHaveProperty("value", "1500")
-    await waitFor(() => expect(screen.getByText(/1 THB = 450/i)).toBeTruthy())
+    await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveProperty("value", "IDR"))
+    expect(screen.getByText(/i know exactly what this cost in thb/i)).toBeTruthy()
   })
 
-  it("pre-fills a persisted charged amount/currency when editing", async () => {
+  it("falls back to the trip's base currency when there's no other saved currency yet", () => {
+    apiFetch.mockImplementation((path: string) => {
+      if (path.includes("exchange-rates")) return Promise.resolve({ success: true, data: [] })
+      if (path.includes("categories")) return Promise.resolve({ success: true, data: [] })
+      return Promise.resolve({ success: true, data: [] })
+    })
+    render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    expect(screen.getByLabelText("Currency")).toHaveProperty("value", "THB")
+    expect(screen.queryByText(/i know exactly what this cost/i)).toBeNull()
+  })
+
+  it("reveals a per-transaction charged-amount override once a foreign currency is picked, and hides it again when switched back to base", async () => {
+    render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "1500" } })
+    // "IDR" only becomes a selectable option once the trip's saved rates finish loading.
+    await waitFor(() => expect(screen.getByLabelText("Currency").querySelector('option[value="IDR"]')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "IDR" } })
+    fireEvent.click(await screen.findByText(/i know exactly what this cost in thb/i))
+    const chargedInput = screen.getByLabelText("Amount actually charged in THB")
+    fireEvent.change(chargedInput, { target: { value: "84000" } })
+    // The entry amount/currency (what's split) is untouched by the override.
+    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "1500")
+    await waitFor(() => expect(screen.getByText(/1 IDR = 56/i)).toBeTruthy())
+
+    fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "THB" } })
+    expect(screen.queryByLabelText("Amount actually charged in THB")).toBeNull()
+    expect(screen.queryByText(/i know exactly what this cost/i)).toBeNull()
+  })
+
+  it("pre-fills a persisted charged-amount override when editing", async () => {
     const expense: Expense = {
       id: "e1", tripId: trip.id, categoryId: null, expenseDate: "2026-08-06", description: "Dinner",
-      amount: "1500.00", currency: "THB", chargedAmount: "675000.00", chargedCurrency: "IDR",
+      amount: "1500.00", currency: "IDR", chargedAmount: "84000.00", chargedCurrency: "THB",
       splitType: "equal", status: "approved", source: "manual", note: null,
       payers: [{ userId: "u1", amount: "1500.00" }],
       splits: [{ userId: "u1", amount: "750.00" }, { userId: "u2", amount: "750.00" }],
@@ -69,34 +98,25 @@ describe("ExpenseDialog", () => {
       version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     }
     render(<ExpenseDialog trip={trip} participants={participants} expense={expense} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
-    expect(screen.getByLabelText(/amount \(thb\)/i)).toHaveProperty("value", "1500.00")
-    expect(await screen.findByLabelText("Amount actually charged")).toHaveProperty("value", "675000.00")
-    await waitFor(() => expect(screen.getByLabelText("Currency actually charged")).toHaveProperty("value", "IDR"))
+    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "1500.00")
+    expect(screen.getByLabelText("Currency")).toHaveProperty("value", "IDR")
+    expect(await screen.findByLabelText("Amount actually charged in THB")).toHaveProperty("value", "84000.00")
   })
 
-  it("keeps a legacy foreign-currency expense savable when there's no saved rate to convert with", async () => {
-    apiFetch.mockImplementation((path: string) => {
-      // No IDR rate at all - the trip only has a THB->USD rate saved.
-      if (path.includes("exchange-rates")) return Promise.resolve({ success: true, data: [{ id: "r1", from: "THB", to: "USD", rate: "0.027", isFinal: false }] })
-      if (path.includes("categories")) return Promise.resolve({ success: true, data: [] })
-      return Promise.resolve({ success: true, data: [] })
-    })
+  it("edits an expense already in the trip's base currency with no charged-amount option shown", () => {
     const expense: Expense = {
-      id: "e1", tripId: trip.id, categoryId: null, expenseDate: "2026-06-06", description: "1.5 Jt RP mobil van",
-      amount: "1500000", currency: "IDR", chargedAmount: null, chargedCurrency: null,
-      splitType: "shares", status: "approved", source: "manual", note: null,
-      payers: [{ userId: "u1", amount: "1500000" }],
-      splits: [{ userId: "u1", amount: "1071428.57", weight: "5" }, { userId: "u2", amount: "428571.43", weight: "2" }],
+      id: "e1", tripId: trip.id, categoryId: null, expenseDate: "2026-08-06", description: "Bank transfer",
+      amount: "5000.00", currency: "THB", chargedAmount: null, chargedCurrency: null,
+      splitType: "equal", status: "approved", source: "manual", note: null,
+      payers: [{ userId: "u1", amount: "5000.00" }],
+      splits: [{ userId: "u1", amount: "2500.00" }, { userId: "u2", amount: "2500.00" }],
       canEdit: true, canDelete: true, canApprove: false, canReject: false,
       version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     }
     render(<ExpenseDialog trip={trip} participants={participants} expense={expense} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
-    await screen.findByText(/no saved rate for idr/i)
-    // The base amount must stay at the legacy figure (not blank/zero) so payers still balance and
-    // the form is savable, even though there's no rate to convert it into a real THB figure.
-    expect(screen.getByLabelText(/amount \(thb\)/i)).toHaveProperty("value", "1500000")
-    expect(screen.getByText(/^Remaining: 0/)).toBeTruthy()
-    expect(screen.queryByText(/^Remaining: -/)).toBeNull()
+    expect(screen.getByLabelText("Amount")).toHaveProperty("value", "5000.00")
+    expect(screen.getByLabelText("Currency")).toHaveProperty("value", "THB")
+    expect(screen.queryByText(/i know exactly what this cost/i)).toBeNull()
   })
 
   it("carries chargedAmount/chargedCurrency through expenseFormFromExpense", () => {

@@ -74,9 +74,13 @@ export default function TripsPage() {
                     <h3 className="font-heading text-lg font-extrabold">{trip.name}</h3>
                     <span className="text-xs tracking-wide text-muted-foreground">{trip.code}</span>
                   </div>
-                  <span className="shrink-0 rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
-                    {trip.baseCurrency}
-                  </span>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                    {(trip.currencies?.length ? trip.currencies : [trip.baseCurrency]).map((code) => (
+                      <span key={code} className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                        {code}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <p className="mt-4 text-sm text-muted-foreground">
                   {trip.startDate} — {trip.endDate}

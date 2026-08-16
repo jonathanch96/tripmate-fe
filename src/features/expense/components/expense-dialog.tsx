@@ -18,7 +18,7 @@ import { ReceiptWorkflow } from "@/features/receipt/components/receipt-workflow"
 import { listExpenseCategories } from "@/features/expense/category-api"
 import { expenseCreateSchema } from "@/features/expense/schema"
 import type { Expense, ExpensePayload, MoneyRow, SplitType } from "@/features/expense/types"
-import { convertFromBase, convertToBase, otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
+import { convertToBase, otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
 import type { Rate } from "@/features/finance/types"
 import type { Participant, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
@@ -52,11 +52,8 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
   const categories = useQuery({ queryKey: qk.expenseCategories(trip.code), queryFn: async () => (await listExpenseCategories(trip.code)).data ?? [] })
   const [description, setDescription] = useState(initial.description)
   const [date, setDate] = useState(initial.expenseDate)
-  // A legacy foreign-currency expense (see isLegacyForeignCurrency below) starts from its stored
-  // amount rather than blank, so the form is immediately consistent with its existing payers/splits
-  // and stays savable even if there's no saved rate to convert it with.
   const [amount, setAmount] = useState(initial.amount)
-  const currency = trip.baseCurrency
+  const [currency, setCurrency] = useState(initial.currency)
   const [categoryId, setCategoryId] = useState(initial.categoryId ?? "")
   const [splitType, setSplitType] = useState<SplitType>(initial.splitType)
   const [payers, setPayers] = useState<MoneyRow[]>(initial.payers)
@@ -65,67 +62,59 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
   const [note, setNote] = useState(initial.note ?? "")
   const [activeTab, setActiveTab] = useState<"manual" | "receipt">("manual")
 
-  // "Which currency was this actually charged in" only ever offers currencies the trip already
-  // tracks a rate for (Settings > Currencies & exchange rates) — never the full supported list.
+  // The currency picker only offers currencies the trip already tracks a rate for (Settings >
+  // Currencies & exchange rates), plus whatever the expense is already stored in — so opening an
+  // older expense whose currency later lost its saved rate still shows correctly instead of
+  // silently falling back to some other option.
   const rates = useQuery({ queryKey: qk.rates(trip.code), queryFn: async () => (await apiFetch<Rate[]>(`/api/trips/${trip.code}/exchange-rates`)).data ?? [] })
-  const otherCurrencyOptions = otherTripCurrencies(trip.baseCurrency, rates.data ?? []).map((row) => row.code)
+  const currencyOptions = Array.from(new Set([trip.baseCurrency, currency, ...otherTripCurrencies(trip.baseCurrency, rates.data ?? []).map((row) => row.code)]))
 
-  // The trip amount (above) is always in trip.baseCurrency and is what splitting, balances and
-  // totals use. "Actually charged in" is just a record of what the card/account actually shows —
-  // it never becomes the expense's stored currency, and it's persisted separately (chargedAmount/
-  // chargedCurrency) so it's still there next time the expense is opened for editing.
-  const isLegacyForeignCurrency = !initial.chargedCurrency && initial.currency !== trip.baseCurrency
-  const [useOtherCurrency, setUseOtherCurrency] = useState(!!initial.chargedCurrency || isLegacyForeignCurrency)
-  const [chargedCurrency, setChargedCurrency] = useState(initial.chargedCurrency ?? (isLegacyForeignCurrency ? initial.currency : ""))
-  const [chargedAmount, setChargedAmount] = useState(initial.chargedAmount ?? (isLegacyForeignCurrency ? initial.amount : ""))
-  function enableOtherCurrency() { setUseOtherCurrency(true); if (!chargedCurrency) setChargedCurrency(otherCurrencyOptions[0] ?? "") }
-  function disableOtherCurrency() { setUseOtherCurrency(false); setChargedCurrency(""); setChargedAmount("") }
-
-  // Editing an older expense that was recorded directly in a foreign currency (before the base
-  // amount and the actually-charged amount were split apart): treat that stored amount as the
-  // actually-charged figure, and improve the base-currency amount (which starts out as that same
-  // raw figure, above) with a real conversion once the trip's saved rate loads. If there's no
-  // saved rate for that currency, the raw figure stands - wrong, but at least visible and editable,
-  // rather than blank and unsavable. Adjusted directly during render (React's documented pattern
-  // for state derived from data that arrives after mount) rather than in an effect, since it only
-  // ever needs to run once.
-  const [legacyBaseAmountApplied, setLegacyBaseAmountApplied] = useState(false)
-  // True while `amount` is still that unconverted raw figure rather than a real base-currency
-  // number, so the rate hint below doesn't present chargedAmount/amount as a genuine 1:1 rate.
-  // Clears as soon as the user edits the amount themselves (amountChanged, below).
-  const [legacyAmountUnconverted, setLegacyAmountUnconverted] = useState(false)
-  if (!legacyBaseAmountApplied && isLegacyForeignCurrency && rates.data) {
-    setLegacyBaseAmountApplied(true)
-    const converted = convertToBase(initial.amount, trip.baseCurrency, initial.currency, rates.data)
-    if (converted) setAmount(converted.toFixed(zeroScaleCurrencies.has(trip.baseCurrency) ? 0 : 2))
-    else setLegacyAmountUnconverted(true)
+  // A new expense defaults to base currency (above) before the trip's rates have loaded - most
+  // spend on a trip happens in the currency you're actually visiting, not back home, so once a
+  // saved foreign currency is available, prefer it. Only for a brand-new expense, only once, and
+  // never overriding an expense being edited (which always shows its own stored currency).
+  const [defaultCurrencyApplied, setDefaultCurrencyApplied] = useState(!!expense)
+  if (!defaultCurrencyApplied && rates.data) {
+    setDefaultCurrencyApplied(true)
+    const preferred = otherTripCurrencies(trip.baseCurrency, rates.data)[0]?.code
+    if (preferred) setCurrency(preferred)
   }
 
+  // Splitting, payers and balances all run in whatever currency is picked above. When that's not
+  // the trip's base currency, "actually charged" is an optional per-transaction override: the exact
+  // base-currency total (e.g. a card statement) that supersedes the trip's saved rate for this one
+  // expense, without touching any other expense or the trip's Settings rate.
+  const showChargedOption = currency !== trip.baseCurrency
+  const [chargedExpanded, setChargedExpanded] = useState(!!initial.chargedAmount || !!initial.chargedCurrency)
+  const [chargedAmount, setChargedAmount] = useState(initial.chargedAmount ?? "")
+  function enableCharged() { setChargedExpanded(true) }
+  function disableCharged() { setChargedExpanded(false); setChargedAmount("") }
+
   const baseScale = zeroScaleCurrencies.has(trip.baseCurrency) ? 0 : 2
-  const chargedScale = zeroScaleCurrencies.has(chargedCurrency) ? 0 : 2
   const amountValue = Number.parseFloat(amount)
   const chargedAmountValue = Number.parseFloat(chargedAmount)
-  const perTransactionRate = useOtherCurrency && !legacyAmountUnconverted && chargedAmountValue > 0 && amountValue > 0 ? new Decimal(chargedAmountValue).div(amountValue) : null
-  const convertedToCharged = useOtherCurrency && amountValue > 0 ? convertFromBase(amount, trip.baseCurrency, chargedCurrency, rates.data ?? []) : null
-  const otherCurrencyHint = perTransactionRate
-    ? `Rate for this transaction: 1 ${trip.baseCurrency} = ${perTransactionRate.toFixed(6)} ${chargedCurrency}.`
-    : convertedToCharged
-      ? `≈ ${money(convertedToCharged.toFixed(chargedScale), chargedCurrency)} at your saved rate.`
-      : `No saved rate for ${chargedCurrency} yet — add one in Settings to see the equivalent.`
+  const perTransactionRate = chargedAmountValue > 0 && amountValue > 0 ? new Decimal(chargedAmountValue).div(amountValue) : null
+  const convertedToBasePreview = amountValue > 0 ? convertToBase(amount, trip.baseCurrency, currency, rates.data ?? []) : null
+  const chargedHint = perTransactionRate
+    ? `Rate for this transaction: 1 ${currency} = ${perTransactionRate.toFixed(6)} ${trip.baseCurrency}.`
+    : convertedToBasePreview
+      ? `≈ ${money(convertedToBasePreview.toFixed(baseScale), trip.baseCurrency)} at your saved rate.`
+      : `No saved rate for ${currency} yet — add one in Settings to see the equivalent.`
 
   const payload = useMemo<ExpensePayload>(() => ({
     expenseDate: date, description, amount, currency,
     // An empty chargedCurrency is the explicit "clear it" signal the backend expects on update;
     // always sending it (rather than omitting when unchanged) keeps this a full-state save, same
     // as every other field here.
-    chargedAmount: useOtherCurrency ? chargedAmount : "", chargedCurrency: useOtherCurrency ? chargedCurrency : "",
+    chargedAmount: showChargedOption && chargedExpanded ? chargedAmount : "", chargedCurrency: showChargedOption && chargedExpanded ? trip.baseCurrency : "",
     categoryId: categoryId || null, splitType, payers,
     participants: splitType === "equal" ? selected : undefined,
     splits: splitType === "equal" ? undefined : manual.map((row) => WEIGHTED_TYPES.has(splitType) ? { userId: row.userId, amount: row.amount, weight: row.weight } : { userId: row.userId, amount: row.amount }),
     note: note || null,
-  }), [amount, categoryId, chargedAmount, chargedCurrency, currency, date, description, manual, note, payers, selected, splitType, useOtherCurrency])
+  }), [amount, categoryId, chargedAmount, chargedExpanded, currency, date, description, manual, note, payers, selected, splitType, showChargedOption, trip.baseCurrency])
   const valid = expenseCreateSchema.safeParse(payload).success
-  function amountChanged(value: string) { setAmount(value); setLegacyAmountUnconverted(false); if (payers.length === 1) setPayers([{ ...payers[0], amount: value }]) }
+  function amountChanged(value: string) { setAmount(value); if (payers.length === 1) setPayers([{ ...payers[0], amount: value }]) }
+  function currencyChanged(value: string) { setCurrency(value); if (value === trip.baseCurrency) disableCharged() }
   return <Dialog open={open} onOpenChange={setOpen}>
     {!expense ? <DialogTrigger render={<Button className="font-bold">+ Add expense</Button>} /> : null}
     <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[20px] p-0 sm:max-w-2xl">
@@ -140,32 +129,37 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
           <div className="space-y-1.5"><Label htmlFor="expense-date">Date</Label><Input id="expense-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
           <div className="space-y-1.5"><Label htmlFor="expense-category">Category</Label><NativeSelect id="expense-category" className="w-full" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><NativeSelectOption value="">Uncategorized</NativeSelectOption>{(categories.data ?? []).map((category) => <NativeSelectOption key={category.id} value={category.id}>{category.name}</NativeSelectOption>)}</NativeSelect></div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="expense-amount">Amount ({currency})</Label>
-          <Input id="expense-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => amountChanged(event.target.value)} />
-          <p className="text-xs text-muted-foreground">This is the trip amount used for splitting, balances and totals.</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="expense-amount">Amount</Label>
+            <Input id="expense-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => amountChanged(event.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="expense-currency">Currency</Label>
+            {trip.settings.multiCurrencyEnabled ? (
+              <NativeSelect id="expense-currency" className="w-full" value={currency} onChange={(event) => currencyChanged(event.target.value)}>
+                {currencyOptions.map((code) => <NativeSelectOption key={code} value={code}>{code}</NativeSelectOption>)}
+              </NativeSelect>
+            ) : (
+              <Input id="expense-currency" value={trip.baseCurrency} disabled readOnly />
+            )}
+          </div>
         </div>
+        <p className="-mt-2 text-xs text-muted-foreground">{showChargedOption ? "Splitting and balances use this amount, converted to the trip's base currency below." : "This is the trip's base currency."}</p>
 
-        {!useOtherCurrency ? (
-          otherCurrencyOptions.length > 0 ? (
-            <button type="button" className="-mt-2 w-fit text-[13px] font-bold text-primary" onClick={enableOtherCurrency}>
-              + I actually paid in a different currency
-            </button>
-          ) : null
+        {!showChargedOption ? null : !chargedExpanded ? (
+          <button type="button" className="-mt-2 w-fit text-[13px] font-bold text-primary" onClick={enableCharged}>
+            + I know exactly what this cost in {trip.baseCurrency}
+          </button>
         ) : (
           <div className="-mt-2 rounded-xl border border-[oklch(0.9_0.01_250)] bg-[oklch(0.98_0.008_250)] p-4">
             <div className="mb-2.5 flex items-baseline justify-between">
-              <span className="text-[13px] font-extrabold">Actually charged in</span>
-              <button type="button" className="text-xs font-semibold text-destructive" onClick={disableOtherCurrency}>Remove</button>
+              <span className="text-[13px] font-extrabold">Actually charged in {trip.baseCurrency}</span>
+              <button type="button" className="text-xs font-semibold text-destructive" onClick={disableCharged}>Remove</button>
             </div>
-            <div className="flex gap-2">
-              <NativeSelect aria-label="Currency actually charged" className="w-32" value={chargedCurrency} onChange={(event) => setChargedCurrency(event.target.value)}>
-                {otherCurrencyOptions.map((code) => <NativeSelectOption key={code} value={code}>{code}</NativeSelectOption>)}
-              </NativeSelect>
-              <Input aria-label="Amount actually charged" className="flex-1" inputMode="decimal" placeholder={`e.g. ${zeroScaleCurrencies.has(chargedCurrency) ? "750,000" : "750.00"}`} value={chargedAmount} onChange={(event) => setChargedAmount(event.target.value)} />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">Just a record of what your card or account actually shows — splitting still uses the amount above.</p>
-            <p className="mt-1 text-xs text-muted-foreground">{otherCurrencyHint}</p>
+            <Input aria-label={`Amount actually charged in ${trip.baseCurrency}`} inputMode="decimal" placeholder={`e.g. ${zeroScaleCurrencies.has(trip.baseCurrency) ? "840,000" : "840.00"}`} value={chargedAmount} onChange={(event) => setChargedAmount(event.target.value)} />
+            <p className="mt-2 text-xs text-muted-foreground">e.g. what your card statement actually shows — this becomes the exact rate used for this expense only, overriding the trip&apos;s saved rate.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{chargedHint}</p>
           </div>
         )}
 
@@ -176,14 +170,8 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
         {!expense ? <TabsContent value="receipt"><ReceiptWorkflow trip={trip} participants={participants} onConverted={() => { setOpen(false); onReceiptConverted?.() }} onManual={(defaults) => {
           setDescription(defaults.description)
           setDate(defaults.expenseDate)
-          if (defaults.currency === trip.baseCurrency) {
-            setUseOtherCurrency(false); setChargedCurrency(""); setChargedAmount("")
-            amountChanged(defaults.amount)
-          } else {
-            setUseOtherCurrency(true); setChargedCurrency(defaults.currency); setChargedAmount(defaults.amount)
-            const converted = convertToBase(defaults.amount, trip.baseCurrency, defaults.currency, rates.data ?? [])
-            amountChanged(converted ? converted.toFixed(baseScale) : "")
-          }
+          currencyChanged(defaults.currency)
+          amountChanged(defaults.amount)
           setActiveTab("manual")
         }} /></TabsContent> : null}
       </Tabs>

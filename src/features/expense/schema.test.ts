@@ -44,12 +44,32 @@ describe("expenseCreateSchema", () => {
     expect(result.success).toBe(true)
   })
 
-  it("rejects a shares split with a non-positive share count", () => {
+  it("accepts a shares split where one participant sits it out with a zero share count", () => {
     const [first, second] = [crypto.randomUUID(), crypto.randomUUID()]
     const result = expenseCreateSchema.safeParse({
       expenseDate: "2026-08-25", description: "Dinner", amount: "90", currency: "PHP",
       splitType: "shares", payers: [{ userId: first, amount: "90" }],
       splits: [{ userId: first, amount: "90", weight: "1" }, { userId: second, amount: "0", weight: "0" }],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("rejects a shares split where every participant has a zero share count", () => {
+    const [first, second] = [crypto.randomUUID(), crypto.randomUUID()]
+    const result = expenseCreateSchema.safeParse({
+      expenseDate: "2026-08-25", description: "Dinner", amount: "90", currency: "PHP",
+      splitType: "shares", payers: [{ userId: first, amount: "90" }],
+      splits: [{ userId: first, amount: "0", weight: "0" }, { userId: second, amount: "0", weight: "0" }],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects a shares split missing a share count for a participant", () => {
+    const [first, second] = [crypto.randomUUID(), crypto.randomUUID()]
+    const result = expenseCreateSchema.safeParse({
+      expenseDate: "2026-08-25", description: "Dinner", amount: "90", currency: "PHP",
+      splitType: "shares", payers: [{ userId: first, amount: "90" }],
+      splits: [{ userId: first, amount: "90", weight: "1" }, { userId: second, amount: "0" }],
     })
     expect(result.success).toBe(false)
   })
