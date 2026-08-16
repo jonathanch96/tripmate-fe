@@ -74,6 +74,31 @@ describe("ExpenseDialog", () => {
     await waitFor(() => expect(screen.getByLabelText("Currency actually charged")).toHaveProperty("value", "IDR"))
   })
 
+  it("keeps a legacy foreign-currency expense savable when there's no saved rate to convert with", async () => {
+    apiFetch.mockImplementation((path: string) => {
+      // No IDR rate at all - the trip only has a THB->USD rate saved.
+      if (path.includes("exchange-rates")) return Promise.resolve({ success: true, data: [{ id: "r1", from: "THB", to: "USD", rate: "0.027", isFinal: false }] })
+      if (path.includes("categories")) return Promise.resolve({ success: true, data: [] })
+      return Promise.resolve({ success: true, data: [] })
+    })
+    const expense: Expense = {
+      id: "e1", tripId: trip.id, categoryId: null, expenseDate: "2026-06-06", description: "1.5 Jt RP mobil van",
+      amount: "1500000", currency: "IDR", chargedAmount: null, chargedCurrency: null,
+      splitType: "shares", status: "approved", source: "manual", note: null,
+      payers: [{ userId: "u1", amount: "1500000" }],
+      splits: [{ userId: "u1", amount: "1071428.57", weight: "5" }, { userId: "u2", amount: "428571.43", weight: "2" }],
+      canEdit: true, canDelete: true, canApprove: false, canReject: false,
+      version: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    }
+    render(<ExpenseDialog trip={trip} participants={participants} expense={expense} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    await screen.findByText(/no saved rate for idr/i)
+    // The base amount must stay at the legacy figure (not blank/zero) so payers still balance and
+    // the form is savable, even though there's no rate to convert it into a real THB figure.
+    expect(screen.getByLabelText(/amount \(thb\)/i)).toHaveProperty("value", "1500000")
+    expect(screen.getByText(/^Remaining: 0/)).toBeTruthy()
+    expect(screen.queryByText(/^Remaining: -/)).toBeNull()
+  })
+
   it("carries chargedAmount/chargedCurrency through expenseFormFromExpense", () => {
     const expense: Expense = {
       id: "e1", tripId: trip.id, categoryId: null, expenseDate: "2026-08-06", description: "Dinner",

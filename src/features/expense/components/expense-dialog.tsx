@@ -52,7 +52,10 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
   const categories = useQuery({ queryKey: qk.expenseCategories(trip.code), queryFn: async () => (await listExpenseCategories(trip.code)).data ?? [] })
   const [description, setDescription] = useState(initial.description)
   const [date, setDate] = useState(initial.expenseDate)
-  const [amount, setAmount] = useState(initial.currency === trip.baseCurrency ? initial.amount : "")
+  // A legacy foreign-currency expense (see isLegacyForeignCurrency below) starts from its stored
+  // amount rather than blank, so the form is immediately consistent with its existing payers/splits
+  // and stays savable even if there's no saved rate to convert it with.
+  const [amount, setAmount] = useState(initial.amount)
   const currency = trip.baseCurrency
   const [categoryId, setCategoryId] = useState(initial.categoryId ?? "")
   const [splitType, setSplitType] = useState<SplitType>(initial.splitType)
@@ -80,22 +83,29 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
 
   // Editing an older expense that was recorded directly in a foreign currency (before the base
   // amount and the actually-charged amount were split apart): treat that stored amount as the
-  // actually-charged figure, and derive the base-currency amount from the trip's saved rate as
-  // soon as it loads, so the field the user sees is never silently wrong. Adjusted directly during
-  // render (React's documented pattern for state derived from data that arrives after mount)
-  // rather than in an effect, since it only ever needs to run once.
+  // actually-charged figure, and improve the base-currency amount (which starts out as that same
+  // raw figure, above) with a real conversion once the trip's saved rate loads. If there's no
+  // saved rate for that currency, the raw figure stands - wrong, but at least visible and editable,
+  // rather than blank and unsavable. Adjusted directly during render (React's documented pattern
+  // for state derived from data that arrives after mount) rather than in an effect, since it only
+  // ever needs to run once.
   const [legacyBaseAmountApplied, setLegacyBaseAmountApplied] = useState(false)
+  // True while `amount` is still that unconverted raw figure rather than a real base-currency
+  // number, so the rate hint below doesn't present chargedAmount/amount as a genuine 1:1 rate.
+  // Clears as soon as the user edits the amount themselves (amountChanged, below).
+  const [legacyAmountUnconverted, setLegacyAmountUnconverted] = useState(false)
   if (!legacyBaseAmountApplied && isLegacyForeignCurrency && rates.data) {
     setLegacyBaseAmountApplied(true)
     const converted = convertToBase(initial.amount, trip.baseCurrency, initial.currency, rates.data)
     if (converted) setAmount(converted.toFixed(zeroScaleCurrencies.has(trip.baseCurrency) ? 0 : 2))
+    else setLegacyAmountUnconverted(true)
   }
 
   const baseScale = zeroScaleCurrencies.has(trip.baseCurrency) ? 0 : 2
   const chargedScale = zeroScaleCurrencies.has(chargedCurrency) ? 0 : 2
   const amountValue = Number.parseFloat(amount)
   const chargedAmountValue = Number.parseFloat(chargedAmount)
-  const perTransactionRate = useOtherCurrency && chargedAmountValue > 0 && amountValue > 0 ? new Decimal(chargedAmountValue).div(amountValue) : null
+  const perTransactionRate = useOtherCurrency && !legacyAmountUnconverted && chargedAmountValue > 0 && amountValue > 0 ? new Decimal(chargedAmountValue).div(amountValue) : null
   const convertedToCharged = useOtherCurrency && amountValue > 0 ? convertFromBase(amount, trip.baseCurrency, chargedCurrency, rates.data ?? []) : null
   const otherCurrencyHint = perTransactionRate
     ? `Rate for this transaction: 1 ${trip.baseCurrency} = ${perTransactionRate.toFixed(6)} ${chargedCurrency}.`
@@ -115,7 +125,7 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
     note: note || null,
   }), [amount, categoryId, chargedAmount, chargedCurrency, currency, date, description, manual, note, payers, selected, splitType, useOtherCurrency])
   const valid = expenseCreateSchema.safeParse(payload).success
-  function amountChanged(value: string) { setAmount(value); if (payers.length === 1) setPayers([{ ...payers[0], amount: value }]) }
+  function amountChanged(value: string) { setAmount(value); setLegacyAmountUnconverted(false); if (payers.length === 1) setPayers([{ ...payers[0], amount: value }]) }
   return <Dialog open={open} onOpenChange={setOpen}>
     {!expense ? <DialogTrigger render={<Button className="font-bold">+ Add expense</Button>} /> : null}
     <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[20px] p-0 sm:max-w-2xl">
