@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { X } from "lucide-react"
 
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -32,7 +33,7 @@ import {
   type TripUpdateInput,
 } from "@/features/trip/schema"
 import { useTrip } from "@/features/trip/trip-context"
-import type { Invitation, Participant, Trip } from "@/features/trip/types"
+import type { Participant, Trip } from "@/features/trip/types"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { COUNTRIES } from "@/lib/countries"
 import { participantName } from "@/lib/participant-name"
@@ -333,13 +334,6 @@ function MembersSection({
     }
   }
 
-  const invitations = useQuery({
-    queryKey: qk.invitations(trip.code),
-    queryFn: async () => (await apiFetch<Invitation[]>(`/api/trips/${trip.code}/invitations`)).data ?? [],
-    enabled: trip.canEditSettings,
-  })
-  const pending = (invitations.data ?? []).filter((invitation) => invitation.status === "pending")
-
   const invitationMutation = useMutation({
     mutationFn: async () =>
       apiFetch<{ status: string; inviteLink?: string }>(`/api/trips/${trip.code}/invitations`, {
@@ -356,7 +350,7 @@ function MembersSection({
       setEmail("")
       setPassword("")
       setConfirmPassword("")
-      void queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) })
+      void queryClient.invalidateQueries({ queryKey: qk.participants(trip.code) })
     },
     onError: (error) => toast.error(apiErrorMessage(error, "Could not create invitation")),
   })
@@ -377,21 +371,61 @@ function MembersSection({
     }
     invitationMutation.mutate()
   }
-  const revokeMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/trips/${trip.code}/invitations/${id}`, { method: "DELETE" }),
-    onSuccess: async () => { toast.success("Invitation revoked"); await queryClient.invalidateQueries({ queryKey: qk.invitations(trip.code) }) },
-    onError: (error) => toast.error(apiErrorMessage(error, "Could not revoke invitation")),
+
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/trips/${trip.code}/participants/${id}`, { method: "DELETE" }),
+    onSuccess: async () => {
+      toast.success("Member removed")
+      setRemovingId(null)
+      await queryClient.invalidateQueries({ queryKey: qk.participants(trip.code) })
+    },
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not remove member — they may still have expenses or settlements on this trip")),
   })
 
   return (
     <div>
       <SectionTitle>Members & invites</SectionTitle>
-      <h3 className="mb-3 font-heading text-[15px] font-extrabold">Members</h3>
-      <div className="mb-8 rounded-[14px] border border-border bg-white px-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="font-heading text-[15px] font-extrabold">Members</h3>
+        {trip.canEditSettings ? (
+          <Dialog open={inviteOpen} onOpenChange={onInviteOpenChange}>
+            <DialogTrigger render={<Button className="font-bold">+ Invite people</Button>} />
+            <DialogContent className="rounded-[20px] sm:max-w-md">
+              <DialogHeader className="mb-1.5">
+                <DialogTitle className="font-heading text-[19px] font-extrabold">Invite people</DialogTitle>
+                <DialogDescription className="text-[13px]">Add someone to this trip and set the password they&apos;ll sign in with — no email confirmation needed.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2.5">
+                <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
+                <div className="flex gap-2.5">
+                  <Input type="text" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password for them to sign in with" />
+                  <Button type="button" variant="outline" className="shrink-0 font-bold" onClick={() => { const generated = generatePassword(); setPassword(generated); setConfirmPassword(generated) }}>Generate</Button>
+                </div>
+                <Input type="text" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
+              </div>
+              {sentLink ? (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Share this link and password with them directly.</p>
+                  <Input readOnly value={sentLink} aria-label="Invite link" />
+                  <Input readOnly value={sentPassword} aria-label="Invite password" />
+                </div>
+              ) : null}
+              <DialogFooter className="mx-0 mb-0 rounded-b-[20px]">
+                <Button variant="outline" onClick={() => onInviteOpenChange(false)}>Cancel</Button>
+                <Button className="font-bold" disabled={invitationMutation.isPending} onClick={sendInvite}>{invitationMutation.isPending ? <Spinner /> : "Send invite"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null}
+      </div>
+      <div className="rounded-[14px] border border-border bg-white px-5">
         {participants.map((participant) => {
           const name = participantName(participant)
           const realName = participant.user?.name ?? participant.user?.email ?? "Participant"
-          const mayEdit = trip.canEditSettings || participant.userId === session?.user?.id
+          const isSelf = participant.userId === session?.user?.id
+          const mayEdit = trip.canEditSettings || isSelf
+          const mayRemove = trip.canEditSettings && !isSelf
           return (
             <div key={participant.id} className="border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
               <div className="flex items-center gap-3.5">
@@ -428,6 +462,29 @@ function MembersSection({
                     Edit bank
                   </Button>
                 ) : null}
+                {mayRemove ? (
+                  <AlertDialog open={removingId === participant.id} onOpenChange={(open) => setRemovingId(open ? participant.id : null)}>
+                    <AlertDialogTrigger
+                      render={<button type="button" className="shrink-0 text-xs font-semibold text-destructive hover:underline" aria-label={`Remove ${name} from this trip`} />}
+                    >
+                      Remove
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove {name} from this trip?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          They&apos;ll lose access to this trip. This only works if they have no expenses, splits, or settlements recorded — if they do, removal will be blocked.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" disabled={removeMutation.isPending} onClick={() => removeMutation.mutate(participant.id)}>
+                          {removeMutation.isPending ? <Spinner /> : "Remove"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : null}
               </div>
               {editingName === participant.id ? (
                 <NameEditor code={trip.code} participant={participant} onClose={() => setEditingName(null)} />
@@ -439,51 +496,6 @@ function MembersSection({
           )
         })}
       </div>
-      {trip.canEditSettings ? (
-        <>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-heading text-[15px] font-extrabold">Invite people</h3>
-            <Dialog open={inviteOpen} onOpenChange={onInviteOpenChange}>
-              <DialogTrigger render={<Button className="font-bold">+ Invite people</Button>} />
-              <DialogContent className="rounded-[20px] sm:max-w-md">
-                <DialogHeader className="mb-1.5">
-                  <DialogTitle className="font-heading text-[19px] font-extrabold">Invite people</DialogTitle>
-                  <DialogDescription className="text-[13px]">Add someone to this trip and set the password they&apos;ll sign in with — no email confirmation needed.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-2.5">
-                  <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
-                  <div className="flex gap-2.5">
-                    <Input type="text" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password for them to sign in with" />
-                    <Button type="button" variant="outline" className="shrink-0 font-bold" onClick={() => { const generated = generatePassword(); setPassword(generated); setConfirmPassword(generated) }}>Generate</Button>
-                  </div>
-                  <Input type="text" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
-                </div>
-                {sentLink ? (
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Share this link and password with them directly.</p>
-                    <Input readOnly value={sentLink} aria-label="Invite link" />
-                    <Input readOnly value={sentPassword} aria-label="Invite password" />
-                  </div>
-                ) : null}
-                <DialogFooter className="mx-0 mb-0 rounded-b-[20px]">
-                  <Button variant="outline" onClick={() => onInviteOpenChange(false)}>Cancel</Button>
-                  <Button className="font-bold" disabled={invitationMutation.isPending} onClick={sendInvite}>{invitationMutation.isPending ? <Spinner /> : "Send invite"}</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-          {pending.length ? (
-            <div className="max-w-lg rounded-[14px] border border-border bg-white px-5">
-              {pending.map((invitation) => (
-                <div key={invitation.id} className="flex items-center justify-between gap-2 border-b border-[oklch(0.95_0.006_60)] py-3 text-[13px] last:border-0">
-                  <span>{invitation.email} {!invitation.hasLoggedIn ? <span className="text-muted-foreground">· Not logged in yet</span> : null}</span>
-                  <button type="button" className="text-xs font-semibold text-destructive disabled:opacity-50" disabled={revokeMutation.isPending} onClick={() => revokeMutation.mutate(invitation.id)}>{revokeMutation.isPending ? <Spinner /> : "Revoke"}</button>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </>
-      ) : null}
     </div>
   )
 }
