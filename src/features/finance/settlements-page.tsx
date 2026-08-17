@@ -19,14 +19,28 @@ import { ApiError } from "@/lib/envelope"
 import { formatMoney } from "@/lib/money"
 import { participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
+import type { Trip } from "@/features/trip/types"
 
-type Draft = { fromUserId: string; toUserId: string; amount: string; currency: string; method: "cash" | "bank_transfer"; note: string }
+type Draft = { fromUserId: string; toUserId: string; amount: string; currency: string; method: "cash" | "bank_transfer"; note: string; date: string }
+
+// Today, clamped to the trip's own dates - the backend only accepts a date within a week of the
+// trip, and a trip recorded well before or after "today" (an upcoming trip, an old one being
+// settled late) would otherwise default to a date the server immediately rejects.
+function defaultSettlementDate(trip: Trip) {
+  const today = new Date().toISOString().slice(0, 10)
+  if (today < trip.startDate) return trip.startDate
+  if (today > trip.endDate) return trip.endDate
+  return today
+}
 
 export function SettlementsPage() {
   const { trip, participants } = useTrip(), client = useQueryClient()
-  const empty = { fromUserId: participants[0]?.userId ?? "", toUserId: participants[1]?.userId ?? "", amount: "", currency: trip.baseCurrency, method: "bank_transfer" as const, note: "" }
+  const empty = { fromUserId: participants[0]?.userId ?? "", toUserId: participants[1]?.userId ?? "", amount: "", currency: trip.baseCurrency, method: "bank_transfer" as const, note: "", date: defaultSettlementDate(trip) }
   const [draft, setDraft] = useState<Draft>(empty), [formError, setFormError] = useState("")
   const [recordOpen, setRecordOpen] = useState(false)
+  // Set while editing an existing row; From/To can't be changed once recorded, so the dialog
+  // reuses the same form but locks those two fields and PATCHes instead of POSTing.
+  const [editingRow, setEditingRow] = useState<Settlement | null>(null)
   // The rejection reason is required by the API, so the planner types a real one here.
   const [rejecting, setRejecting] = useState<Settlement | null>(null), [reason, setReason] = useState(""), [rejectError, setRejectError] = useState("")
   const [actionError, setActionError] = useState("")
@@ -35,12 +49,18 @@ export function SettlementsPage() {
   const rates = useQuery({ queryKey: qk.rates(trip.code), queryFn: async () => (await apiFetch<Rate[]>(`/api/trips/${trip.code}/exchange-rates`)).data ?? [] })
   const currencyOptions = [trip.baseCurrency, ...otherTripCurrencies(trip.baseCurrency, rates.data ?? []).map((row) => row.code)]
   const refresh = async () => Promise.all([client.invalidateQueries({ queryKey: qk.balances(trip.code) }), client.invalidateQueries({ queryKey: qk.settlements(trip.code) }), client.invalidateQueries({ queryKey: qk.finalSettlement(trip.code) })])
+  function closeRecordDialog(open: boolean) { setRecordOpen(open); if (!open) { setFormError(""); setEditingRow(null) } }
   const create = useMutation({
     mutationFn: () => apiFetch(`/api/trips/${trip.code}/settlements`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) }),
     onSuccess: async () => { setFormError(""); setDraft(empty); setRecordOpen(false); await refresh() },
     // This stays inline in the dialog rather than becoming a toast: it tells the user what to
     // change about this settlement, so it has to sit next to the fields.
     onError: (error) => { const code = error instanceof ApiError ? error.envelope.code : ""; setFormError(code === "SETTLEMENT_NOT_ALLOWED_YET" ? "This trip does not allow settlements before its end date." : "The settlement could not be recorded.") },
+  })
+  const update = useMutation({
+    mutationFn: () => apiFetch(`/api/trips/${trip.code}/settlements/${editingRow!.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: draft.amount, currency: draft.currency, method: draft.method, note: draft.note, date: draft.date, version: editingRow!.version }) }),
+    onSuccess: async () => { setFormError(""); setDraft(empty); setEditingRow(null); setRecordOpen(false); await refresh() },
+    onError: (error) => setFormError(error instanceof ApiError ? error.message : "The settlement could not be updated."),
   })
   const action = useMutation({
     mutationFn: ({ row, action, body }: { row: Settlement; action: "approve" | "reject" | "delete"; body?: { reason: string } }) => apiFetch(`/api/trips/${trip.code}/settlements/${row.id}${action === "delete" ? "" : `/${action}`}`, { method: action === "delete" ? "DELETE" : "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined }),
@@ -51,25 +71,32 @@ export function SettlementsPage() {
   })
   const names = participantNameMap(participants)
   const recipient = participants.find((p) => p.userId === draft.toUserId)
-  function prefill(debt: Transfer) { setDraft({ ...draft, fromUserId: debt.fromUserId, toUserId: debt.toUserId, amount: debt.amount, currency: debt.currency }); setFormError(""); setRecordOpen(true) }
-  function submit(event: FormEvent) { event.preventDefault(); setFormError(""); create.mutate() }
+  function prefill(debt: Transfer) { setEditingRow(null); setDraft({ ...draft, fromUserId: debt.fromUserId, toUserId: debt.toUserId, amount: debt.amount, currency: debt.currency, date: defaultSettlementDate(trip) }); setFormError(""); setRecordOpen(true) }
+  function openEdit(row: Settlement) {
+    setEditingRow(row)
+    setDraft({ fromUserId: row.fromUserId, toUserId: row.toUserId, amount: row.amount, currency: row.currency, method: row.method, note: row.note ?? "", date: row.date })
+    setFormError("")
+    setRecordOpen(true)
+  }
+  function submit(event: FormEvent) { event.preventDefault(); setFormError(""); if (editingRow) update.mutate(); else create.mutate() }
   function submitRejection(event: FormEvent) { event.preventDefault(); if (!rejecting || !reason.trim()) { setRejectError("Give a reason so the payer knows what to fix."); return } action.mutate({ row: rejecting, action: "reject", body: { reason: reason.trim() } }) }
   return <section>
     <div className="mb-[22px] flex items-end justify-between gap-3">
       <div><h1 className="font-heading text-[26px] font-extrabold">Settlements</h1><p className="mt-1.5 text-sm text-muted-foreground">Record a payment between members to update balances.</p></div>
-      <Dialog open={recordOpen} onOpenChange={(open) => { setRecordOpen(open); if (!open) setFormError("") }}>
+      <Dialog open={recordOpen} onOpenChange={closeRecordDialog}>
         <DialogTrigger render={<Button className="font-bold">+ Record settlement</Button>} />
-        <DialogContent className="rounded-[20px] sm:max-w-lg"><DialogHeader><DialogTitle className="font-heading text-[19px] font-extrabold">Record settlement</DialogTitle><DialogDescription>Log a payment between two participants. The planner approves it if this trip requires approval.</DialogDescription></DialogHeader>
+        <DialogContent className="rounded-[20px] sm:max-w-lg"><DialogHeader><DialogTitle className="font-heading text-[19px] font-extrabold">{editingRow ? "Edit settlement" : "Record settlement"}</DialogTitle><DialogDescription>{editingRow ? "Who's paying whom can't change here — delete and re-record it instead if that's wrong." : "Log a payment between two participants. The planner approves it if this trip requires approval."}</DialogDescription></DialogHeader>
           <form className="grid gap-3 sm:grid-cols-2" method="post" onSubmit={submit}>
-            <label className="space-y-1.5 text-sm font-semibold">From (who is paying)<NativeSelect className="w-full font-normal" value={draft.fromUserId} onChange={(e) => setDraft({ ...draft, fromUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
-            <label className="space-y-1.5 text-sm font-semibold">To (who receives it)<NativeSelect className="w-full font-normal" value={draft.toUserId} onChange={(e) => setDraft({ ...draft, toUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
+            <label className="space-y-1.5 text-sm font-semibold">From (who is paying)<NativeSelect className="w-full font-normal" disabled={Boolean(editingRow)} value={draft.fromUserId} onChange={(e) => setDraft({ ...draft, fromUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
+            <label className="space-y-1.5 text-sm font-semibold">To (who receives it)<NativeSelect className="w-full font-normal" disabled={Boolean(editingRow)} value={draft.toUserId} onChange={(e) => setDraft({ ...draft, toUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
             <label className="space-y-1.5 text-sm font-semibold">Amount<MoneyInput required placeholder="0.00" value={draft.amount} onChange={(value) => setDraft({ ...draft, amount: value })} /></label>
             <label className="space-y-1.5 text-sm font-semibold">Currency<NativeSelect className="w-full font-normal" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value })}>{currencyOptions.map((code) => <NativeSelectOption key={code} value={code}>{code}</NativeSelectOption>)}</NativeSelect></label>
+            <label className="space-y-1.5 text-sm font-semibold">Date<Input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label>
             <label className="space-y-1.5 text-sm font-semibold">Method<NativeSelect className="w-full font-normal" value={draft.method} onChange={(e) => setDraft({ ...draft, method: e.target.value as Draft["method"] })}><NativeSelectOption value="bank_transfer">Bank transfer</NativeSelectOption><NativeSelectOption value="cash">Cash</NativeSelectOption></NativeSelect></label>
-            <label className="space-y-1.5 text-sm font-semibold">Note<Input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
+            <label className="space-y-1.5 text-sm font-semibold sm:col-span-2">Note<Input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
             {draft.method === "bank_transfer" ? <div className="rounded-lg bg-muted p-3 text-sm sm:col-span-2">Recipient account: {recipient?.bankInfo ? `${recipient.bankInfo.bankName} · ${recipient.bankInfo.accountNumber} · ${recipient.bankInfo.accountHolder}` : "No bank details saved"}</div> : null}
             {formError ? <p role="alert" className="text-sm text-destructive sm:col-span-2">{formError}</p> : null}
-            <DialogFooter className="sm:col-span-2"><Button variant="outline" type="button" onClick={() => setRecordOpen(false)}>Cancel</Button><Button className="font-bold" disabled={create.isPending} type="submit">{create.isPending ? <><Spinner className="mr-1.5" />Recording…</> : "Save settlement"}</Button></DialogFooter>
+            <DialogFooter className="sm:col-span-2"><Button variant="outline" type="button" onClick={() => setRecordOpen(false)}>Cancel</Button><Button className="font-bold" disabled={create.isPending || update.isPending} type="submit">{create.isPending || update.isPending ? <><Spinner className="mr-1.5" />{editingRow ? "Saving…" : "Recording…"}</> : editingRow ? "Save changes" : "Save settlement"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -95,7 +122,8 @@ export function SettlementsPage() {
       <div className="overflow-hidden rounded-[14px] border border-border bg-white">
         <Table>
           <TableHeader><TableRow className="border-b-border bg-muted hover:bg-muted">
-            <TableHead className="h-auto py-3 pl-5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">From</TableHead>
+            <TableHead className="h-auto py-3 pl-5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Date</TableHead>
+            <TableHead className="h-auto py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">From</TableHead>
             <TableHead className="h-auto py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">To</TableHead>
             <TableHead className="h-auto py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Method</TableHead>
             <TableHead className="h-auto py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Status</TableHead>
@@ -103,12 +131,20 @@ export function SettlementsPage() {
             <TableHead className="h-auto py-3 pr-5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Actions</TableHead>
           </TableRow></TableHeader>
           <TableBody>{history.data.map((row) => <TableRow key={row.id} className="border-b-[oklch(0.95_0.006_60)]">
-            <TableCell className="py-4 pl-5 text-sm">{names.get(row.fromUserId) ?? row.fromUser?.name ?? "Participant"}</TableCell>
+            <TableCell className="py-4 pl-5 text-[13px] whitespace-nowrap text-muted-foreground">{row.date}</TableCell>
+            <TableCell className="py-4 text-sm">{names.get(row.fromUserId) ?? row.fromUser?.name ?? "Participant"}</TableCell>
             <TableCell className="py-4 text-sm">{names.get(row.toUserId) ?? row.toUser?.name ?? "Participant"}</TableCell>
             <TableCell className="py-4 text-sm text-muted-foreground">{row.method === "bank_transfer" ? "Bank transfer" : "Cash"}</TableCell>
             <TableCell className="py-4"><Badge variant={row.status === "pending" ? "secondary" : row.status === "rejected" ? "destructive" : "outline"}>{row.status}</Badge></TableCell>
             <TableCell className="py-4 text-right text-sm font-bold tabular-nums">{formatMoney(row.amount, row.currency)}</TableCell>
-            <TableCell className="py-4 pr-5">{trip.canEditSettings && row.status === "pending" ? <div className="flex justify-end gap-2"><Button size="sm" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>{action.isPending ? <Spinner /> : "Approve"}</Button><Button size="sm" variant="outline" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => { setRejecting(row); setReason(""); setRejectError("") }}>Reject</Button><Button size="sm" variant="ghost" className="h-auto px-2 py-1 text-xs font-semibold text-destructive hover:text-destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>{action.isPending ? <Spinner /> : "Delete"}</Button></div> : null}</TableCell>
+            <TableCell className="py-4 pr-5"><div className="flex justify-end gap-2">
+              {row.canEdit ? <Button size="sm" variant="outline" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => openEdit(row)}>Edit</Button> : null}
+              {trip.canEditSettings && row.status === "pending" ? <>
+                <Button size="sm" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>{action.isPending ? <Spinner /> : "Approve"}</Button>
+                <Button size="sm" variant="outline" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" disabled={action.isPending} onClick={() => { setRejecting(row); setReason(""); setRejectError("") }}>Reject</Button>
+              </> : null}
+              {row.canDelete ? <Button size="sm" variant="ghost" className="h-auto px-2 py-1 text-xs font-semibold text-destructive hover:text-destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>{action.isPending ? <Spinner /> : "Delete"}</Button> : null}
+            </div></TableCell>
           </TableRow>)}</TableBody>
         </Table>
       </div>

@@ -8,7 +8,7 @@ export type BalanceResult = {
   summary: { totalExpenses: string; totalSettled: string; expenseCount: number; settlementCount: number; pendingExpenseCount: number; pendingSettlementCount: number; unsettledTotal: string }
   ratesUsed: { from: string; to: string; rate: string; isFinal: boolean }[]
 }
-export type Settlement = { id: string; fromUserId: string; toUserId: string; amount: string; currency: string; method: "cash" | "bank_transfer"; status: "pending" | "approved" | "rejected"; note?: string | null; fromUser?: PublicUser | null; toUser?: PublicUser | null }
+export type Settlement = { id: string; fromUserId: string; toUserId: string; amount: string; currency: string; method: "cash" | "bank_transfer"; status: "pending" | "approved" | "rejected"; date: string; note?: string | null; fromUser?: PublicUser | null; toUser?: PublicUser | null; canEdit: boolean; canDelete: boolean; version: number }
 export type Rate = { id: string; from: string; to: string; rate: string; isFinal: boolean; source: string }
 export type FinalPlan = { baseCurrency: string; transfers: Transfer[] }
 export type LedgerEntry = {
