@@ -12,15 +12,23 @@ import { LoadingState, Spinner } from "@/components/ui/spinner"
 import type { Invitation, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
 import { apiErrorMessage } from "@/lib/envelope"
+import { formatMoney } from "@/lib/money"
 import { qk } from "@/lib/query-keys"
+import { cn } from "@/lib/utils"
 
 export default function TripsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
-  const trips = useQuery({
-    queryKey: qk.trips(),
-    queryFn: async () => (await apiFetch<Trip[]>("/api/trips")).data ?? [],
+  const [view, setView] = useState<"active" | "archived">("active")
+  const activeTrips = useQuery({
+    queryKey: qk.tripsByArchived(false),
+    queryFn: async () => (await apiFetch<Trip[]>("/api/trips?archived=false")).data ?? [],
   })
+  const archivedTrips = useQuery({
+    queryKey: qk.tripsByArchived(true),
+    queryFn: async () => (await apiFetch<Trip[]>("/api/trips?archived=true")).data ?? [],
+  })
+  const trips = view === "archived" ? archivedTrips : activeTrips
   const query = search.trim().toLowerCase()
   const visibleTrips = query
     ? trips.data?.filter((trip) => `${trip.name} ${trip.code} ${trip.country ?? ""}`.toLowerCase().includes(query))
@@ -40,6 +48,18 @@ export default function TripsPage() {
     },
     onError: (error) => toast.error(apiErrorMessage(error, "Could not accept invitation")),
   })
+  const archiveMutation = useMutation({
+    mutationFn: ({ code, archived }: { code: string; archived: boolean }) =>
+      apiFetch(`/api/trips/${code}/${archived ? "archive" : "unarchive"}`, { method: "POST" }),
+    onSuccess: async (_data, variables) => {
+      toast.success(variables.archived ? "Trip archived" : "Trip restored")
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.tripsByArchived(false) }),
+        queryClient.invalidateQueries({ queryKey: qk.tripsByArchived(true) }),
+      ])
+    },
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not update the trip")),
+  })
 
   return (
     <section>
@@ -53,6 +73,30 @@ export default function TripsPage() {
           <Link href="/trip/create" className={buttonVariants({ className: "font-bold" })}>+ Create trip</Link>
         </div>
       </div>
+
+      <div className="mb-5.5 flex flex-wrap gap-2.5">
+        <button
+          type="button"
+          onClick={() => setView("active")}
+          className={cn(
+            "rounded-[9px] px-4 py-2.5 text-[13px] font-bold",
+            view === "active" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"
+          )}
+        >
+          Active trips · {activeTrips.data?.length ?? 0}
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("archived")}
+          className={cn(
+            "rounded-[9px] px-4 py-2.5 text-[13px] font-bold",
+            view === "archived" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"
+          )}
+        >
+          Archived · {archivedTrips.data?.length ?? 0}
+        </button>
+      </div>
+
       {trips.data?.length ? (
         <Input
           value={search}
@@ -86,14 +130,17 @@ export default function TripsPage() {
       ) : visibleTrips?.length ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
           {visibleTrips.map((trip) => (
-            <Link key={trip.id} href={`/trip/${trip.code}`} className="block">
-              <Card className="h-full gap-0 rounded-2xl p-6 shadow-none transition-shadow hover:shadow-[0_8px_24px_oklch(0.2_0.02_60_/_0.08)]">
+            <Card key={trip.id} className="h-full gap-0 rounded-2xl p-6 shadow-none transition-shadow hover:shadow-[0_8px_24px_oklch(0.2_0.02_60_/_0.08)]">
+              <Link href={`/trip/${trip.code}`} className="block">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-heading text-lg font-extrabold">{trip.name}</h3>
                     <span className="text-xs tracking-wide text-muted-foreground">{trip.code}</span>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                    {trip.isArchived ? (
+                      <span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">Archived</span>
+                    ) : null}
                     {trip.country ? (
                       <span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
                         {trip.country}
@@ -109,14 +156,43 @@ export default function TripsPage() {
                 <p className="mt-4 text-sm text-muted-foreground">
                   {trip.startDate} — {trip.endDate}
                 </p>
-              </Card>
-            </Link>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  {trip.memberCount ?? 0} member{trip.memberCount === 1 ? "" : "s"} · Total {formatMoney(trip.totalSpend ?? "0", trip.baseCurrency)}
+                </p>
+              </Link>
+              <div className="mt-3.5 flex justify-end border-t border-border pt-3.5">
+                {trip.isArchived ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={archiveMutation.isPending}
+                    onClick={() => archiveMutation.mutate({ code: trip.code, archived: false })}
+                  >
+                    ↺ Restore trip
+                  </Button>
+                ) : (
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    disabled={archiveMutation.isPending}
+                    onClick={() => archiveMutation.mutate({ code: trip.code, archived: true })}
+                  >
+                    Archive trip
+                  </button>
+                )}
+              </div>
+            </Card>
           ))}
         </div>
       ) : trips.data?.length ? (
         <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-16 text-center">
           <p className="mb-1.5 text-[15px] font-bold">No trips match &ldquo;{search}&rdquo;</p>
           <p className="text-[13px] text-muted-foreground">Try a different name, code, or country.</p>
+        </div>
+      ) : view === "archived" ? (
+        <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-16 text-center">
+          <p className="mb-1.5 text-[15px] font-bold">No archived trips</p>
+          <p className="text-[13px] text-muted-foreground">Trips you archive will show up here.</p>
         </div>
       ) : (
         <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-16 text-center">

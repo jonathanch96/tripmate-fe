@@ -56,8 +56,10 @@ test("planner creates and updates a trip, invites a member, and join remains ide
   await planner.request.get(`/api/trips/${code}/invitations`);
   await signIn(planner, plannerEmail);
   await planner.goto(`/trip/${code}/settings`);
+  await planner.getByRole("button", { name: "Members & invites" }).click();
+  await planner.getByRole("button", { name: "+ Invite people" }).click();
   await planner.getByPlaceholder("friend@example.com").fill(memberEmail);
-  await planner.getByRole("button", { name: "Invite" }).click();
+  await planner.getByRole("button", { name: "Send invite" }).click();
   await expect(planner.getByText("Participant added")).toBeVisible();
 
   // Precompile the expenses route before refreshing the deliberately

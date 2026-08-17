@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 import Decimal from "decimal.js"
 
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState } from "@/components/ui/spinner"
 import { BreakdownBar } from "@/features/analytics/breakdown-bar"
 import { listExpenseCategories } from "@/features/expense/category-api"
@@ -15,19 +17,31 @@ import { apiFetch } from "@/lib/api-client"
 import { formatMoney } from "@/lib/money"
 import { qk } from "@/lib/query-keys"
 
-// Every trip's spend is converted into this currency so trips in different currencies can be
-// compared and summed. Matches the currency the "cost by category/country" bars are shown in.
-const TARGET_CURRENCY = "USD"
-
 function toRows(totals: Map<string, Decimal>): { rows: { key: string; amount: Decimal }[]; total: Decimal } {
   const total = [...totals.values()].reduce((sum, amount) => sum.add(amount), new Decimal(0))
   const rows = [...totals.entries()].map(([key, amount]) => ({ key, amount })).sort((a, b) => b.amount.comparedTo(a.amount))
   return { rows, total }
 }
 
+// Whichever base currency the most trips share needs the fewest missing exchange rates to show
+// real numbers by default, so it beats a fixed currency like USD that most trips may never trade against.
+function mostCommonCurrency(currencies: string[]): string {
+  const counts = new Map<string, number>()
+  for (const code of currencies) counts.set(code, (counts.get(code) ?? 0) + 1)
+  let best = "USD"
+  let bestCount = 0
+  for (const [code, count] of counts) {
+    if (count > bestCount) { best = code; bestCount = count }
+  }
+  return best
+}
+
 export function AnalyticsPage() {
   const trips = useQuery({ queryKey: qk.trips(), queryFn: async () => (await apiFetch<Trip[]>("/api/trips")).data ?? [] })
   const tripList = trips.data ?? []
+  const [selectedCurrency, setSelectedCurrency] = useState("")
+  const currencyOptions = [...new Set(tripList.map((trip) => trip.baseCurrency.toUpperCase()))].sort()
+  const targetCurrency = selectedCurrency || mostCommonCurrency(tripList.map((trip) => trip.baseCurrency))
 
   const expenseQueries = useQueries({
     queries: tripList.map((trip) => ({ queryKey: qk.allExpenses(trip.code), queryFn: () => listAllExpenses(trip.code) })),
@@ -55,7 +69,7 @@ export function AnalyticsPage() {
     const expenses = (expenseQueries[index]?.data ?? []).filter((expense) => expense.status === "approved")
     const categories = categoryQueries[index]?.data ?? []
     const rateRows = rateQueries[index]?.data ?? []
-    const isBaseTarget = trip.baseCurrency.toUpperCase() === TARGET_CURRENCY
+    const isBaseTarget = trip.baseCurrency.toUpperCase() === targetCurrency
 
     let tripBaseTotal = new Decimal(0)
     const tripCategoryBase = new Map<string, Decimal>()
@@ -69,7 +83,7 @@ export function AnalyticsPage() {
       tripCategoryBase.set(name, (tripCategoryBase.get(name) ?? new Decimal(0)).add(baseAmount))
     }
 
-    const toTarget = (amount: Decimal) => isBaseTarget ? amount : convertFromBase(amount, trip.baseCurrency, TARGET_CURRENCY, rateRows)
+    const toTarget = (amount: Decimal) => isBaseTarget ? amount : convertFromBase(amount, trip.baseCurrency, targetCurrency, rateRows)
     const tripTarget = toTarget(tripBaseTotal)
     if (tripTarget === null) { unconvertedTrips++; return }
 
@@ -91,19 +105,30 @@ export function AnalyticsPage() {
   return (
     <section>
       <Link href="/trips" className="mb-3.5 inline-block text-[13px] font-semibold text-muted-foreground hover:text-foreground">‹ My trips</Link>
-      <h1 className="font-heading text-[28px] font-extrabold">Analytics</h1>
-      <p className="mt-1.5 mb-6.5 text-sm text-muted-foreground">Spend across all your trips, converted to {TARGET_CURRENCY} for comparison.</p>
+      <div className="mb-6.5 flex flex-wrap items-end justify-between gap-3.5">
+        <div>
+          <h1 className="font-heading text-[28px] font-extrabold">Analytics</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Spend across all your trips, converted to {targetCurrency} for comparison.</p>
+        </div>
+        {currencyOptions.length > 1 ? (
+          <NativeSelect aria-label="Compare trips in this currency" value={targetCurrency} onChange={(event) => setSelectedCurrency(event.target.value)} className="text-[13px]">
+            {currencyOptions.map((code) => (
+              <NativeSelectOption key={code} value={code}>Compare in {code}</NativeSelectOption>
+            ))}
+          </NativeSelect>
+        ) : null}
+      </div>
 
       {unconvertedTrips > 0 ? (
         <p className="mb-4.5 text-xs text-muted-foreground">
-          {unconvertedTrips} trip{unconvertedTrips === 1 ? "" : "s"} couldn&apos;t be converted to {TARGET_CURRENCY} (no exchange rate configured) and {unconvertedTrips === 1 ? "is" : "are"} excluded from these totals.
+          {unconvertedTrips} trip{unconvertedTrips === 1 ? "" : "s"} couldn&apos;t be converted to {targetCurrency} (no exchange rate configured) and {unconvertedTrips === 1 ? "is" : "are"} excluded from these totals.
         </p>
       ) : null}
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-[14px] border border-border bg-white p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Total spend</p>
-          <p className="font-heading text-[22px] font-extrabold">{formatMoney(grandTotal, TARGET_CURRENCY)}</p>
+          <p className="font-heading text-[22px] font-extrabold">{formatMoney(grandTotal, targetCurrency)}</p>
         </div>
         <div className="rounded-[14px] border border-border bg-white p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Trips</p>
@@ -122,7 +147,7 @@ export function AnalyticsPage() {
             <BreakdownBar
               key={row.key}
               label={row.key}
-              amountLabel={formatMoney(row.amount, TARGET_CURRENCY)}
+              amountLabel={formatMoney(row.amount, targetCurrency)}
               pctLabel={categoryTotal.isZero() ? "0%" : `${Math.round(row.amount.div(categoryTotal).mul(100).toNumber())}%`}
               fraction={categoryTotal.isZero() ? 0 : row.amount.div(categoryTotal).toNumber()}
             />
@@ -139,7 +164,7 @@ export function AnalyticsPage() {
             <BreakdownBar
               key={row.key}
               label={row.key}
-              amountLabel={formatMoney(row.amount, TARGET_CURRENCY)}
+              amountLabel={formatMoney(row.amount, targetCurrency)}
               pctLabel={countryTotal.isZero() ? "0%" : `${Math.round(row.amount.div(countryTotal).mul(100).toNumber())}%`}
               fraction={countryTotal.isZero() ? 0 : row.amount.div(countryTotal).toNumber()}
             />

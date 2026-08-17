@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
@@ -33,6 +34,7 @@ import {
 import { useTrip } from "@/features/trip/trip-context"
 import type { Invitation, Participant, Trip } from "@/features/trip/types"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
+import { COUNTRIES } from "@/lib/countries"
 import { participantName } from "@/lib/participant-name"
 import { categoryColorFor } from "@/lib/category-colors"
 import { apiFetch } from "@/lib/api-client"
@@ -56,6 +58,7 @@ function settingsPayload(trip: Trip): TripUpdateInput {
   return tripUpdateSchema.parse({
     name: trip.name,
     baseCurrency: trip.baseCurrency,
+    country: trip.country ?? undefined,
     editPermission: trip.settings.editPermission,
     approvalRequiredExpenses: trip.settings.approvalRequiredExpenses,
     approvalRequiredSettlements: trip.settings.approvalRequiredSettlements,
@@ -173,9 +176,10 @@ function NameEditor({
   )
 }
 
-type Section = "menu" | "currencies" | "categories" | "roles" | "members" | "preferences"
+type Section = "menu" | "details" | "currencies" | "categories" | "roles" | "members" | "preferences"
 
 const MENU_ITEMS: Array<{ id: Section; label: string; description: string }> = [
+  { id: "details", label: "Trip details", description: "The country (or countries) this trip covers." },
   { id: "currencies", label: "Currencies & exchange rates", description: "Base currency and rates between currencies used on this trip." },
   { id: "categories", label: "Categories", description: "The categories expenses can be tagged with." },
   { id: "roles", label: "Roles & permissions", description: "What owners and members can each do." },
@@ -184,6 +188,7 @@ const MENU_ITEMS: Array<{ id: Section; label: string; description: string }> = [
 ]
 
 const SECTION_LABELS: Record<Exclude<Section, "menu">, string> = {
+  details: "Trip details",
   currencies: "Currencies & exchange rates",
   categories: "Categories",
   roles: "Roles & permissions",
@@ -308,6 +313,7 @@ function MembersSection({
 }) {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
+  const [inviteOpen, setInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -315,6 +321,17 @@ function MembersSection({
   const [sentPassword, setSentPassword] = useState("")
   const [editingBank, setEditingBank] = useState<string | null>(null)
   const [editingName, setEditingName] = useState<string | null>(null)
+
+  function onInviteOpenChange(open: boolean) {
+    setInviteOpen(open)
+    if (!open) {
+      setEmail("")
+      setPassword("")
+      setConfirmPassword("")
+      setSentLink("")
+      setSentPassword("")
+    }
+  }
 
   const invitations = useQuery({
     queryKey: qk.invitations(trip.code),
@@ -424,23 +441,37 @@ function MembersSection({
       </div>
       {trip.canEditSettings ? (
         <>
-          <h3 className="mb-3 font-heading text-[15px] font-extrabold">Invite people</h3>
-          <div className="mb-3.5 max-w-lg space-y-2.5">
-            <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
-            <div className="flex gap-2.5">
-              <Input type="text" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password for them to sign in with" />
-              <Button type="button" variant="outline" className="shrink-0 font-bold" onClick={() => { const generated = generatePassword(); setPassword(generated); setConfirmPassword(generated) }}>Generate</Button>
-            </div>
-            <Input type="text" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
-            <Button className="font-bold" disabled={invitationMutation.isPending} onClick={sendInvite}>{invitationMutation.isPending ? <Spinner /> : "Send invite"}</Button>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="font-heading text-[15px] font-extrabold">Invite people</h3>
+            <Dialog open={inviteOpen} onOpenChange={onInviteOpenChange}>
+              <DialogTrigger render={<Button className="font-bold">+ Invite people</Button>} />
+              <DialogContent className="rounded-[20px] sm:max-w-md">
+                <DialogHeader className="mb-1.5">
+                  <DialogTitle className="font-heading text-[19px] font-extrabold">Invite people</DialogTitle>
+                  <DialogDescription className="text-[13px]">Add someone to this trip and set the password they&apos;ll sign in with — no email confirmation needed.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2.5">
+                  <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="friend@example.com" />
+                  <div className="flex gap-2.5">
+                    <Input type="text" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password for them to sign in with" />
+                    <Button type="button" variant="outline" className="shrink-0 font-bold" onClick={() => { const generated = generatePassword(); setPassword(generated); setConfirmPassword(generated) }}>Generate</Button>
+                  </div>
+                  <Input type="text" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
+                </div>
+                {sentLink ? (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Share this link and password with them directly.</p>
+                    <Input readOnly value={sentLink} aria-label="Invite link" />
+                    <Input readOnly value={sentPassword} aria-label="Invite password" />
+                  </div>
+                ) : null}
+                <DialogFooter className="mx-0 mb-0 rounded-b-[20px]">
+                  <Button variant="outline" onClick={() => onInviteOpenChange(false)}>Cancel</Button>
+                  <Button className="font-bold" disabled={invitationMutation.isPending} onClick={sendInvite}>{invitationMutation.isPending ? <Spinner /> : "Send invite"}</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
-          {sentLink ? (
-            <div className="mb-3.5 max-w-lg space-y-1.5">
-              <p className="text-xs text-muted-foreground">Share this link and password with them directly.</p>
-              <Input readOnly value={sentLink} aria-label="Invite link" />
-              <Input readOnly value={sentPassword} aria-label="Invite password" />
-            </div>
-          ) : null}
           {pending.length ? (
             <div className="max-w-lg rounded-[14px] border border-border bg-white px-5">
               {pending.map((invitation) => (
@@ -493,6 +524,37 @@ function PreferencesSection({
             />
           </label>
         ))}
+      </div>
+    </div>
+  )
+}
+
+function DetailsSection({
+  trip,
+  updateCountry,
+  disabled,
+}: {
+  trip: Trip
+  updateCountry: (value: string) => void
+  disabled: boolean
+}) {
+  return (
+    <div>
+      <SectionTitle>Trip details</SectionTitle>
+      <div className="max-w-lg rounded-[14px] border border-border bg-white p-5">
+        <label className="mb-2 block text-sm font-semibold" htmlFor="trip-details-country">Country</label>
+        <NativeSelect
+          id="trip-details-country"
+          disabled={!trip.canEditSettings || disabled}
+          value={trip.country ?? ""}
+          onChange={(event) => updateCountry(event.target.value)}
+        >
+          <NativeSelectOption value="">Not set</NativeSelectOption>
+          {COUNTRIES.map((country) => (
+            <NativeSelectOption key={country} value={country}>{country}</NativeSelectOption>
+          ))}
+        </NativeSelect>
+        <p className="mt-2.5 text-xs text-muted-foreground">Used to group this trip on the Analytics page.</p>
       </div>
     </div>
   )
@@ -557,6 +619,7 @@ export function SettingsPanel() {
               ...current,
               name: payload.name,
               baseCurrency: payload.baseCurrency,
+              country: payload.country || null,
               settings: {
                 editPermission: payload.editPermission,
                 approvalRequiredExpenses: payload.approvalRequiredExpenses,
@@ -591,6 +654,10 @@ export function SettingsPanel() {
     settingsMutation.mutate(settingsPayload({ ...trip, baseCurrency: value }))
   }
 
+  function updateCountry(value: string) {
+    settingsMutation.mutate(settingsPayload({ ...trip, country: value }))
+  }
+
   return (
     <div>
       <Breadcrumb section={section} onBack={() => setSection("menu")} />
@@ -604,6 +671,7 @@ export function SettingsPanel() {
         </Card>
       ) : null}
       {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
+      {section === "details" ? <DetailsSection trip={trip} updateCountry={updateCountry} disabled={settingsMutation.isPending} /> : null}
       {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} /> : null}
       {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} /> : null}
       {section === "roles" ? <RolesSection /> : null}

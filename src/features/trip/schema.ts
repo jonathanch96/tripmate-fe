@@ -5,6 +5,7 @@ import { passwordSchema } from "@/features/auth/schema"
 const settingsFields = {
   name: z.string().trim().min(1).max(160),
   baseCurrency: z.string().length(3).transform((value) => value.toUpperCase()),
+  country: z.string().trim().max(80).optional(),
   editPermission: z.enum(["everyone", "own_only"]),
   approvalRequiredExpenses: z.boolean(),
   approvalRequiredSettlements: z.boolean(),
@@ -15,7 +16,6 @@ const settingsFields = {
 export const tripSchema = z
   .object({
     ...settingsFields,
-    country: z.string().trim().max(80).optional(),
     startDate: z.string().min(1),
     endDate: z.string().min(1),
   })

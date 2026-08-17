@@ -1,9 +1,9 @@
 import Link from "next/link"
-import { ArrowRight, Calculator, Globe, Receipt, Users } from "lucide-react"
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SiteHeader } from "@/components/layout/site-header"
 import { buttonVariants } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo"
 
 // Answers real questions in plain language so both search engines and AI answer engines (Google
@@ -11,29 +11,34 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo"
 // and mirrored in the FAQPage JSON-LD so the same content is machine-readable.
 const faqs = [
   {
+    question: "Why not just split everything evenly and settle up from memory?",
+    answer:
+      "Because a real trip is never even. Amara covers the villa, Ken grabs cabs for two days, Priya pays for dinner and gets paid back for half of it later — a few days in, nobody can say who's actually ahead. Memory is exactly where these numbers go wrong: someone forgets they were paid back, someone double-counts a round of drinks. TripMate tracks every payer and every split as it happens, so the total at the end is calculated, not recalled.",
+  },
+  {
     question: "What is TripMate?",
     answer:
-      "TripMate is a shared-trip expense tracker. It records who paid for what, how each cost is split across the people involved, and calculates what everyone owes so the group doesn't need a spreadsheet.",
+      "TripMate is a shared-trip expense tracker built around the one thing every group trip gets wrong: who actually owes what. It records who paid, who the cost was split with, and keeps a running balance for everyone, so settling up means reading a number instead of reconstructing a week from memory.",
   },
   {
     question: "How does TripMate split an expense fairly?",
     answer:
-      "Each expense can have multiple payers and be shared across any subset of trip members, not just an even split across everyone. TripMate tracks the exact share each person owes for every expense.",
+      "Each expense can have multiple payers and be shared across only the people it applies to, not a flat split across the whole group. If Amara and Ken split a cab that Priya wasn't in, that's exactly how it gets recorded.",
   },
   {
     question: "Can TripMate handle expenses in different currencies?",
     answer:
-      "Yes. TripMate keeps the original currency and amount on each expense while converting everything to one base currency, using an explicit exchange rate, so balances stay comparable across a multi-currency trip.",
+      "Yes. Log an expense in whatever currency you actually paid in — cash, a card statement, a local booking — and TripMate converts it to one base currency at a rate you set, so every balance stays comparable no matter how many currencies the trip touched.",
   },
   {
     question: "How does settling up work?",
     answer:
-      "TripMate turns every outstanding balance in a trip into the smallest practical set of transfers between members, so instead of many small IOUs, each person makes as few payments as possible to settle up.",
+      "Instead of five people paying each other back six different ways, TripMate collapses every outstanding balance into the smallest possible set of transfers — it tells you exactly who pays who, once, to close the trip out.",
   },
   {
     question: "How do I join a trip on TripMate?",
     answer:
-      "A trip organizer creates a trip and shares its trip code with the group. Anyone with the code can request to join, and once added as a participant they can log expenses and see balances.",
+      "The trip organizer creates the trip and shares its trip code with the group. Anyone with the code can request to join, and once added they can log expenses and see balances immediately.",
   },
   {
     question: "Do I need to create an account to use TripMate?",
@@ -44,30 +49,64 @@ const faqs = [
 
 const features = [
   {
-    icon: Users,
-    className: "text-blue-500",
-    title: "Split with friends",
-    description: "Share each cost across the people who were actually involved, with any number of payers.",
+    title: "Multiple payers, one expense",
+    description: "Split a bill three people covered without faking a single payer.",
   },
   {
-    icon: Globe,
-    className: "text-green-500",
-    title: "Multi-currency",
-    description: "Keep the original amount while TripMate settles everything in one base currency.",
+    title: "Real exchange rates",
+    description: "Log an expense in the local currency and override the rate when a card statement disagrees.",
   },
   {
-    icon: Calculator,
-    className: "text-purple-500",
-    title: "Smart settlement",
-    description: "Turn a web of IOUs into the smallest practical set of transfers.",
+    title: "Fewest payments to settle",
+    description: "TripMate collapses every IOU into the smallest set of transfers to close the trip out.",
   },
   {
-    icon: Receipt,
-    className: "text-orange-500",
-    title: "Track everything",
-    description: "Every expense, split, approval, and settlement stays explainable.",
+    title: "One ledger per person",
+    description: "See every charge and payment touching a member, running balance included.",
   },
 ]
+
+function HeroPreview() {
+  return (
+    <div className="mx-auto mt-13 max-w-[900px] overflow-hidden rounded-[18px] border border-border bg-card text-left shadow-[0_30px_70px_-15px_oklch(0.3_0.05_255_/_0.25)]">
+      <div className="flex items-center gap-2 border-b border-border bg-muted/60 px-4.5 py-3">
+        <span className="size-2.5 rounded-full bg-destructive/60" />
+        <span className="size-2.5 rounded-full bg-amber-400" />
+        <span className="size-2.5 rounded-full bg-success/60" />
+        <span className="ml-2 text-xs font-bold text-muted-foreground">Bali Getaway · Overview</span>
+      </div>
+      <div className="p-6.5 sm:p-7">
+        <div className="mb-5.5 grid grid-cols-3 gap-3.5">
+          <div className="rounded-xl bg-muted/60 p-4">
+            <p className="mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Your balance</p>
+            <p className="text-xl font-extrabold text-success">+$340.00</p>
+          </div>
+          <div className="rounded-xl bg-muted/60 p-4">
+            <p className="mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Total spend</p>
+            <p className="text-xl font-extrabold">$2,180.00</p>
+          </div>
+          <div className="rounded-xl bg-muted/60 p-4">
+            <p className="mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Members</p>
+            <p className="text-xl font-extrabold">5</p>
+          </div>
+        </div>
+        <p className="mb-3 text-xs font-bold tracking-wide text-muted-foreground uppercase">Who owes who</p>
+        <div className="flex flex-col gap-2.5">
+          {[
+            { name: "Amara", owes: "Jordan", amount: "$120.00" },
+            { name: "Ken", owes: "Jordan", amount: "$220.00" },
+          ].map((row) => (
+            <div key={row.name} className="flex items-center gap-3 rounded-lg bg-muted/60 px-4 py-3">
+              <Avatar size="sm"><AvatarFallback className={avatarColorFor(row.name)}>{initialsOf(row.name)}</AvatarFallback></Avatar>
+              <span className="flex-1 text-sm font-semibold">{row.name} owes {row.owes}</span>
+              <span className="text-sm font-extrabold text-success">{row.amount}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function HomePage() {
   // Structured data for search engines and AI answer engines: WebSite + SoftwareApplication
@@ -111,78 +150,50 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
+    <div className="min-h-screen bg-background">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <SiteHeader />
 
-      <section className="container mx-auto px-4 py-16 md:py-24">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-            Split Trip Expenses <span className="text-blue-600">Without the Hassle</span>
-          </h1>
-          <p className="mb-8 text-xl text-muted-foreground">
-            TripMate records who paid, who shared, and what everyone owes—even when the trip spans
-            multiple currencies.
-          </p>
-          <div className="flex flex-col justify-center gap-4 sm:flex-row">
-            <Link href="/register" className={buttonVariants({ size: "lg" })}>
-              Get started <ArrowRight className="ml-2 size-5" />
-            </Link>
-            <Link href="/login" className={buttonVariants({ size: "lg", variant: "outline" })}>
-              Sign in
-            </Link>
-          </div>
+      <section className="bg-accent/40 px-6 py-16 text-center md:px-10 md:py-20">
+        <h1 className="mx-auto max-w-3xl font-heading text-[32px] leading-tight font-extrabold sm:text-[44px]">
+          Know exactly who owes who<span className="text-primary">.</span>
+        </h1>
+        <p className="mx-auto mt-4.5 max-w-xl text-base leading-relaxed text-muted-foreground">
+          {SITE_DESCRIPTION}
+        </p>
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
+          <Link href="/register" className={buttonVariants({ size: "lg", className: "font-bold" })}>Get started free</Link>
+          <Link href="/login" className={buttonVariants({ size: "lg", variant: "outline", className: "font-bold" })}>Sign in</Link>
         </div>
+
+        <HeroPreview />
       </section>
 
-      <section className="container mx-auto px-4 py-16">
-        <h2 className="mb-12 text-center text-3xl font-bold">How it works</h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {features.map(({ icon: Icon, className, title, description }) => (
-            <Card key={title} className="border-0 shadow-lg transition-shadow hover:shadow-xl">
-              <CardHeader>
-                <Icon className={`mb-4 size-10 ${className}`} aria-hidden="true" />
-                <CardTitle className="text-xl">{title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-base">{description}</CardDescription>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section className="container mx-auto px-4 pb-16">
-        <Card className="mx-auto max-w-2xl border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40">
-          <CardHeader>
-            <CardTitle className="text-blue-900 dark:text-blue-100">
-              A clean path from purchase to settlement
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-blue-900/80 dark:text-blue-100/80">
-            <p><strong>1. Record</strong> expenses with multiple payers and fair splits.</p>
-            <p><strong>2. Review</strong> balances converted with explicit rates.</p>
-            <p><strong>3. Settle</strong> through the smallest practical set of transfers.</p>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="container mx-auto px-4 pb-16">
-        <h2 className="mb-12 text-center text-3xl font-bold">Frequently asked questions</h2>
-        <div className="mx-auto max-w-3xl space-y-6">
-          {faqs.map(({ question, answer }) => (
-            <div key={question}>
-              <h3 className="text-lg font-semibold">{question}</h3>
-              <p className="mt-1 text-muted-foreground">{answer}</p>
+      <section className="mx-auto max-w-5xl px-6 py-16 md:px-10">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map(({ title, description }) => (
+            <div key={title} className="rounded-2xl border border-border bg-card p-5.5">
+              <h3 className="mb-2 font-heading text-base font-extrabold">{title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <footer className="border-t bg-muted/40 py-8">
-        <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} TripMate. Shared-trip expenses without the spreadsheet.</p>
+      <section className="border-t border-border px-6 py-16 md:px-10">
+        <h2 className="mb-10 text-center font-heading text-2xl font-extrabold">Frequently asked questions</h2>
+        <div className="mx-auto max-w-3xl space-y-6">
+          {faqs.map(({ question, answer }) => (
+            <div key={question}>
+              <h3 className="font-heading text-base font-bold">{question}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{answer}</p>
+            </div>
+          ))}
         </div>
+      </section>
+
+      <footer className="border-t border-border px-6 py-6 text-center">
+        <p className="text-[13px] text-muted-foreground">© {new Date().getFullYear()} {SITE_NAME}</p>
       </footer>
     </div>
   )

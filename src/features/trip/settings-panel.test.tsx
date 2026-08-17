@@ -21,7 +21,7 @@ const trip: Trip = {
   startDate: "2026-08-20",
   endDate: "2026-08-25",
   plannerId: "user-1",
-  isFinalized: false,
+  isFinalized: false, isArchived: false,
   settings: {
     editPermission: "everyone",
     approvalRequiredExpenses: false,

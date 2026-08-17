@@ -12,7 +12,7 @@ vi.mock("@/lib/api-client", () => ({ apiFetch }))
 
 const trip: Trip = {
   id: "trip-1", code: "ABC123", name: "Bali Trip", baseCurrency: "THB",
-  startDate: "2026-08-01", endDate: "2026-08-10", plannerId: "user-1", isFinalized: false,
+  startDate: "2026-08-01", endDate: "2026-08-10", plannerId: "user-1", isFinalized: false, isArchived: false,
   settings: { editPermission: "everyone", approvalRequiredExpenses: false, approvalRequiredSettlements: true, multiCurrencyEnabled: true, allowSettlementBeforeEnd: true },
   version: 1, canEditSettings: true,
 }

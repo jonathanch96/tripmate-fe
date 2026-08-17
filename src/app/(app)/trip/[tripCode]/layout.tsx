@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { ArchivedBanner } from "@/features/trip/archived-banner";
 import { JoinTripButton } from "@/features/trip/join-trip-button";
 import { TripProvider } from "@/features/trip/trip-context";
 import { TripMobileNav, TripSidebarNav } from "@/features/trip/trip-sidebar-nav";
@@ -37,6 +38,7 @@ export default async function TripLayout({
       <div className="flex min-h-screen">
         <TripSidebarNav tripCode={tripCode} trip={trip} participants={participants} />
         <div className="min-w-0 flex-1">
+          {trip.isArchived ? <ArchivedBanner tripCode={tripCode} canRestore={trip.canEditSettings} /> : null}
           <TripMobileNav tripCode={tripCode} />
           <div className="mx-auto max-w-[1080px] px-6 py-8 md:px-12 md:py-10">{children}</div>
         </div>

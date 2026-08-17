@@ -1,6 +1,7 @@
 export const qk = {
   all: ["tripmate"] as const,
   trips: () => [...qk.all, "trips"] as const,
+  tripsByArchived: (archived: boolean) => [...qk.trips(), "list", archived] as const,
   trip: (tripCode: string) => [...qk.trips(), tripCode] as const,
   participants: (tripCode: string) => [...qk.trip(tripCode), "participants"] as const,
   invitations: (tripCode: string) => [...qk.trip(tripCode), "invitations"] as const,
