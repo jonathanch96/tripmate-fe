@@ -8,6 +8,10 @@ export async function GET(request: NextRequest, context: Context) { const { code
 export async function POST(request: NextRequest, context: Context) {
   try {
     const { code } = await context.params
+    // No zod schema here: this forwards a raw multipart FormData (the receipt image) straight
+    // through to the backend, which validates content type/size. zod can't usefully validate a
+    // binary upload, so this route is an intentional exception to the "every BFF route re-validates
+    // with zod" rule.
     const body = await request.formData()
     const { envelope, status } = await authenticatedBackendFetch(request, `/trips/${encodeURIComponent(code)}/receipts`, { method: "POST", body, requestId: request.headers.get("X-Request-ID") ?? undefined })
     return NextResponse.json(envelope, { status })
