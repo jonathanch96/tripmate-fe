@@ -140,11 +140,41 @@
   }
   html {
     @apply font-sans;
+    background: var(--background);
   }
   h1,
   h2,
   h3,
   h4 {
     @apply font-heading;
+  }
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mobile-safe-bottom {
+    height: calc(68px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mobile-page-bottom {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --background: oklch(0.975 0.006 60);
+  }
+
+  body {
+    min-width: 320px;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
   }
 }

@@ -85,13 +85,13 @@ export function TripCurrenciesManager({ tripCode, baseCurrency, canEdit, onBaseC
 
   return (
     <div>
-      <div className="mb-3.5 rounded-[14px] border border-border bg-white px-5">
+      <div className="mb-7 rounded-[18px] border border-border bg-white px-4 md:mb-3.5 md:rounded-[14px] md:px-5">
         {rows.map((row) => (
-          <div key={row.code} className="flex items-center justify-between gap-3 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
-            <span className="text-sm font-bold">{row.code}</span>
-            <span className="text-[13px] text-muted-foreground">{row.rateLabel}</span>
+          <div key={row.code} className="flex min-h-[82px] flex-wrap items-center gap-3 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0 md:min-h-0 md:flex-nowrap">
+            <span className="grid size-14 shrink-0 place-items-center rounded-[14px] bg-[oklch(0.96_0.012_60)] text-base font-extrabold md:size-auto md:block md:bg-transparent md:text-sm">{row.code}</span>
+            <span className="min-w-0 flex-1 text-sm font-bold text-foreground md:text-[13px] md:font-normal md:text-muted-foreground">{row.rateLabel}</span>
             {row.isBase ? (
-              <Badge className="bg-[oklch(0.94_0.03_150)] text-[oklch(0.5_0.16_150)]">Base</Badge>
+              <Badge className="bg-[oklch(0.92_0.04_240)] text-[oklch(0.42_0.15_250)]">Base</Badge>
             ) : canEdit ? (
               <div className="flex items-center gap-2.5">
                 <Button type="button" variant="outline" size="sm" className="h-auto rounded-[7px] px-2.5 py-1 text-xs font-semibold" onClick={() => onBaseCurrencyChange(row.code)}>Set as base</Button>
@@ -109,21 +109,22 @@ export function TripCurrenciesManager({ tripCode, baseCurrency, canEdit, onBaseC
         ))}
       </div>
       {canEdit && available.length > 0 ? (
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap gap-2.5">
-            <NativeSelect value={code} onChange={(event) => setNewCode(event.target.value)}>
+        <div className="rounded-[18px] border border-border bg-white p-4 md:space-y-1.5 md:rounded-none md:border-0 md:bg-transparent md:p-0">
+          <h3 className="mb-4 font-heading text-[17px] font-extrabold md:hidden">Add a currency</h3>
+          <div className="grid grid-cols-2 gap-2.5 md:flex md:flex-wrap">
+            <NativeSelect value={code} onChange={(event) => setNewCode(event.target.value)} className="h-12 md:h-auto">
               {available.map((option) => <NativeSelectOption key={option} value={option}>{option}</NativeSelectOption>)}
             </NativeSelect>
-            <div className="flex overflow-hidden rounded-[10px] border border-input">
+            <div className="flex min-w-0 overflow-hidden rounded-[10px] border border-input">
               <button type="button" className={cn("px-3 py-2.5 text-xs font-bold", direction === "direct" ? "bg-primary text-primary-foreground" : "border-r border-input")} onClick={() => setDirection("direct")}>1 {baseCurrency} =</button>
               <button type="button" className={cn("px-3 py-2.5 text-xs font-bold", direction === "inverse" ? "bg-primary text-primary-foreground" : "")} onClick={() => setDirection("inverse")}>1 {code} =</button>
             </div>
-            <Input className="min-w-[8rem] flex-1" inputMode="decimal" placeholder={`Rate to ${direction === "direct" ? code : baseCurrency}`} value={rateInput} onChange={(event) => setRateInput(event.target.value)} />
-            <Button type="button" variant="secondary" className="font-bold" disabled={addCurrency.isPending} onClick={submitAddCurrency}>
+            <Input className="col-span-2 h-12 min-w-[8rem] flex-1 md:col-span-1 md:h-auto" inputMode="decimal" placeholder={`Rate to ${direction === "direct" ? code : baseCurrency}`} value={rateInput} onChange={(event) => setRateInput(event.target.value)} />
+            <Button type="button" className="col-span-2 h-12 font-bold md:col-span-1 md:h-auto" disabled={addCurrency.isPending} onClick={submitAddCurrency}>
               {addCurrency.isPending ? <><Spinner className="mr-1.5" />Adding…</> : "Add currency"}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">{previewLabel}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{previewLabel}</p>
         </div>
       ) : null}
     </div>

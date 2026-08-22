@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactElement } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Decimal from "decimal.js"
 
@@ -43,7 +43,7 @@ export function expenseFormFromExpense(expense: Expense): ExpenseFormState {
   }
 }
 
-export function ExpenseDialog({ trip, participants, expense, pending, open: controlledOpen, onOpenChange, onSubmit, onReceiptConverted }: { trip: Trip; participants: Participant[]; expense?: Expense; pending: boolean; open?: boolean; onOpenChange?: (open: boolean) => void; onSubmit: (payload: ExpensePayload) => void; onReceiptConverted?: () => void }) {
+export function ExpenseDialog({ trip, participants, expense, pending, open: controlledOpen, onOpenChange, onSubmit, onReceiptConverted, trigger }: { trip: Trip; participants: Participant[]; expense?: Expense; pending: boolean; open?: boolean; onOpenChange?: (open: boolean) => void; onSubmit: (payload: ExpensePayload) => void; onReceiptConverted?: () => void; trigger?: ReactElement }) {
   const initial = expense ? expenseFormFromExpense(expense) : { expenseDate: trip.startDate, description: "", amount: "", currency: trip.baseCurrency, categoryId: null as string | null, splitType: "equal" as const, payers: [{ userId: participants[0]?.userId ?? "", amount: "" }], participants: participants.map((participant) => participant.userId), splits: undefined, note: null }
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -126,12 +126,12 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
     }
   }
   return <Dialog open={open} onOpenChange={setOpen}>
-    {!expense ? <DialogTrigger render={<Button className="font-bold">+ Add expense</Button>} /> : null}
-    <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[20px] p-0 sm:max-w-2xl">
-      <div className="p-8 pb-0">
+    {!expense ? <DialogTrigger render={trigger ?? <Button className="font-bold" disabled={trip.isArchived}>+ Add expense</Button>} /> : null}
+    <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[20px] p-0 max-md:inset-0 max-md:h-dvh max-md:max-h-dvh max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none sm:max-w-2xl">
+      <div className="p-5 pb-0 md:p-8 md:pb-0">
         <DialogHeader className="mb-1.5"><DialogTitle className="font-heading text-[19px] font-extrabold">{expense ? "Edit expense" : "Add expense"}</DialogTitle><DialogDescription className="text-[13px]">One bill can have several payers and several people sharing it.</DialogDescription></DialogHeader>
       </div>
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "manual" | "receipt")} className="px-8">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "manual" | "receipt")} className="px-5 md:px-8">
         {!expense ? <TabsList className="mb-1 rounded-full bg-muted p-1"><TabsTrigger className="rounded-full" value="manual">Enter manually</TabsTrigger><TabsTrigger className="rounded-full" value="receipt">Scan receipt</TabsTrigger></TabsList> : null}
         <TabsContent value="manual"><div className="grid gap-4 pt-2">
         <div className="space-y-1.5"><Label htmlFor="expense-description">Description</Label><Input id="expense-description" placeholder="Dinner at Aria" value={description} onChange={(event) => setDescription(event.target.value)} /></div>

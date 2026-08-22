@@ -2,11 +2,12 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useSession } from "next-auth/react"
-import { useState } from "react"
+import { signOut, useSession } from "next-auth/react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { X } from "lucide-react"
+import { ArchiveIcon, BarChart3Icon, CircleDollarSignIcon, FlagIcon, LogOutIcon, X } from "lucide-react"
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -188,6 +189,12 @@ const MENU_ITEMS: Array<{ id: Section; label: string; description: string }> = [
   { id: "preferences", label: "Trip preferences", description: "Approval requirements and editing rules." },
 ]
 
+function sectionFromLocation(): Section {
+  if (typeof window === "undefined") return "menu"
+  const requested = new URLSearchParams(window.location.search).get("section")
+  return MENU_ITEMS.some((item) => item.id === requested) ? requested as Section : "menu"
+}
+
 const SECTION_LABELS: Record<Exclude<Section, "menu">, string> = {
   details: "Trip details",
   currencies: "Currencies & exchange rates",
@@ -220,18 +227,18 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function SettingsMenu({ onSelect }: { onSelect: (section: Section) => void }) {
   return (
     <div>
-      <h1 className="mb-6.5 font-heading text-[26px] font-extrabold">Settings</h1>
+      <h1 className="mb-5 font-heading text-[26px] font-extrabold md:mb-6.5"><span className="md:hidden">More</span><span className="hidden md:inline">Settings</span></h1>
       <div className="flex max-w-[520px] flex-col gap-2.5">
         {MENU_ITEMS.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => onSelect(item.id)}
-            className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-white px-5 py-[18px] text-left transition-shadow hover:shadow-[0_6px_18px_oklch(0.2_0.02_60_/_0.07)]"
+            className="flex min-h-16 items-center justify-between gap-3 rounded-[14px] border border-border bg-white px-4 py-3.5 text-left transition-shadow hover:shadow-[0_6px_18px_oklch(0.2_0.02_60_/_0.07)] md:px-5 md:py-[18px]"
           >
             <span>
               <span className="mb-1 block text-sm font-extrabold">{item.label}</span>
-              <span className="block text-[13px] text-muted-foreground">{item.description}</span>
+              <span className="hidden text-[13px] text-muted-foreground sm:block">{item.description}</span>
             </span>
             <span className="text-lg text-muted-foreground">›</span>
           </button>
@@ -581,7 +588,10 @@ function CurrenciesSection({
 }) {
   return (
     <div>
-      <SectionTitle>Currencies & exchange rates</SectionTitle>
+      <SectionTitle>Currencies & rates</SectionTitle>
+      <p className="-mt-3 mb-6 max-w-xl text-sm leading-relaxed text-muted-foreground md:hidden">
+        Every expense converts into {trip.baseCurrency} using these rates. Editing a rate re-converts the whole trip.
+      </p>
       <TripCurrenciesManager
         tripCode={trip.code}
         baseCurrency={trip.baseCurrency}
@@ -595,7 +605,12 @@ function CurrenciesSection({
 export function SettingsPanel() {
   const initial = useTrip()
   const queryClient = useQueryClient()
-  const [section, setSection] = useState<Section>("menu")
+  const [section, setSection] = useState<Section>(sectionFromLocation)
+  useEffect(() => {
+    const syncSection = () => setSection(sectionFromLocation())
+    window.addEventListener("popstate", syncSection)
+    return () => window.removeEventListener("popstate", syncSection)
+  }, [])
 
   const tripQuery = useQuery({
     queryKey: qk.trip(initial.trip.code),
@@ -611,6 +626,21 @@ export function SettingsPanel() {
       (await apiFetch<Participant[]>(`/api/trips/${initial.trip.code}/participants`)).data ?? [],
   })
   const trip = tripQuery.data
+
+  function selectSection(next: Section) {
+    setSection(next)
+    window.history.pushState({}, "", next === "menu" ? `/trip/${trip.code}/settings` : `/trip/${trip.code}/settings?section=${next}`)
+  }
+
+  const archiveMutation = useMutation({
+    mutationFn: () => apiFetch(`/api/trips/${trip.code}/archive`, { method: "POST" }),
+    onSuccess: async () => {
+      toast.success("Trip archived")
+      await queryClient.invalidateQueries({ queryKey: qk.trips() })
+      window.location.assign("/trips")
+    },
+    onError: (error) => toast.error(apiErrorMessage(error, "Could not archive trip")),
+  })
 
   const settingsMutation = useMutation({
     mutationFn: async (payload: TripUpdateInput) => {
@@ -672,17 +702,43 @@ export function SettingsPanel() {
 
   return (
     <div>
-      <Breadcrumb section={section} onBack={() => setSection("menu")} />
+      <div className="hidden md:block"><Breadcrumb section={section} onBack={() => selectSection("menu")} /></div>
       {section === "menu" ? (
-        <Card className="mb-6 rounded-[14px]">
+        <>
+          <div className="mb-5 rounded-[18px] bg-[oklch(0.24_0.045_255)] p-5 text-white md:hidden">
+            <p className="font-heading text-lg font-extrabold">{trip.name}</p>
+            <p className="mt-1 text-xs text-white/60">{trip.code} · {trip.baseCurrency} · {participantsQuery.data.length} members</p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <Link href={`/trip/${trip.code}/analytics`} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-[12px] bg-white/10 text-[10px] font-bold"><BarChart3Icon className="size-4" />Analytics</Link>
+              <Link href={`/trip/${trip.code}/settlements?record=1`} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-[12px] bg-white/10 text-[10px] font-bold"><CircleDollarSignIcon className="size-4" />Payment</Link>
+              <Link href={`/trip/${trip.code}/final`} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-[12px] bg-white/10 text-[10px] font-bold"><FlagIcon className="size-4" />Final plan</Link>
+            </div>
+          </div>
+          <Card className="mb-6 hidden rounded-[14px] md:flex">
           <CardHeader><CardTitle className="text-base">Share trip</CardTitle></CardHeader>
           <CardContent className="flex gap-2">
             <Input readOnly value={trip.code} />
             <Button className="font-bold" onClick={() => navigator.clipboard.writeText(`${location.origin}/trip/${trip.code}`)}>Copy link</Button>
           </CardContent>
-        </Card>
+          </Card>
+        </>
       ) : null}
-      {section === "menu" ? <SettingsMenu onSelect={setSection} /> : null}
+      {section !== "menu" ? (
+        <button type="button" onClick={() => selectSection("menu")} className="mb-5 flex items-center gap-1 text-sm font-bold text-primary md:hidden">‹ More</button>
+      ) : null}
+      {section === "menu" ? <SettingsMenu onSelect={selectSection} /> : null}
+      {section === "menu" ? (
+        <div className="mt-6 overflow-hidden rounded-[16px] border border-border bg-white md:hidden">
+          {trip.canEditSettings && !trip.isArchived ? (
+            <button type="button" disabled={archiveMutation.isPending} onClick={() => archiveMutation.mutate()} className="flex min-h-14 w-full items-center gap-3 border-b border-border px-4 text-left text-sm font-bold text-destructive">
+              <ArchiveIcon className="size-4.5" /> Archive trip
+            </button>
+          ) : null}
+          <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className="flex min-h-14 w-full items-center gap-3 px-4 text-left text-sm font-bold text-destructive">
+            <LogOutIcon className="size-4.5" /> Sign out
+          </button>
+        </div>
+      ) : null}
       {section === "details" ? <DetailsSection trip={trip} updateCountry={updateCountry} disabled={settingsMutation.isPending} /> : null}
       {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} /> : null}
       {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} /> : null}

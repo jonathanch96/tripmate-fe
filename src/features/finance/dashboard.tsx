@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Decimal from "decimal.js"
+import { PlusIcon } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -87,10 +88,10 @@ export function Dashboard() {
 
   return (
     <section>
-      <div className="mb-[26px] flex items-end justify-between gap-4">
+      <div className="mb-5 flex items-end justify-between gap-4 md:mb-[26px]">
         <div>
           <h1 className="font-heading text-[26px] font-extrabold">Overview</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">How things stand right now.</p>
+          <p className="mt-1.5 hidden text-sm text-muted-foreground md:block">How things stand right now.</p>
         </div>
         <div className="flex items-center gap-2.5">
           {secondaryOptions.length > 0 ? (
@@ -106,7 +107,22 @@ export function Dashboard() {
               ))}
             </NativeSelect>
           ) : null}
-          <ExpenseDialog trip={trip} participants={participants} pending={create.isPending} onSubmit={(payload) => create.mutate(payload)} onReceiptConverted={refresh} />
+          <ExpenseDialog
+            trip={trip}
+            participants={participants}
+            pending={create.isPending}
+            onSubmit={(payload) => create.mutate(payload)}
+            onReceiptConverted={refresh}
+            trigger={
+              <button
+                type="button"
+                disabled={trip.isArchived}
+                className="fixed right-5 bottom-[84px] z-40 flex h-14 items-center gap-2 rounded-[18px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] disabled:hidden md:static md:h-9 md:rounded-md md:px-4 md:shadow-none"
+              >
+                <PlusIcon className="size-5" /> Add expense
+              </button>
+            }
+          />
         </div>
       </div>
 
@@ -116,22 +132,26 @@ export function Dashboard() {
         </div>
       ) : null}
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-[14px] border border-border bg-white p-5">
-          <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Your balance</p>
-          <p className={cn("font-heading text-[22px] font-extrabold", mineValue == null ? "" : mineOwed ? "text-success" : "text-destructive")}>
+      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+        <div className="col-span-2 rounded-[18px] bg-[oklch(0.24_0.045_255)] p-5 text-white md:col-span-1 md:rounded-[14px] md:border md:border-border md:bg-white md:text-foreground">
+          <p className="mb-2.5 text-xs font-bold tracking-wide text-white/55 uppercase md:text-muted-foreground">Your balance</p>
+          <p className={cn("font-heading text-[28px] font-extrabold md:text-[22px]", mineValue == null ? "" : mineOwed ? "text-[oklch(0.75_0.15_150)] md:text-success" : "text-[oklch(0.75_0.13_25)] md:text-destructive")}>
             {mineValue == null ? "—" : mineValue.abs().lessThan("0.5") ? "Settled up" : `${mineOwed ? "+" : "-"}${formatMoney(mineValue.abs(), result.baseCurrency)}`}
           </p>
           {mineValue != null && mineValue.abs().greaterThanOrEqualTo("0.5") ? (
-            <p className="mt-1 text-xs text-muted-foreground">{secondaryLabel(mineValue.abs())}</p>
+            <p className="mt-1 text-xs text-white/55 md:text-muted-foreground">{secondaryLabel(mineValue.abs())}</p>
           ) : null}
+          <div className="mt-5 grid grid-cols-2 gap-2 md:hidden">
+            <Link href={`/trip/${trip.code}/settlements`} className="flex h-11 items-center justify-center rounded-[12px] bg-primary text-xs font-extrabold text-primary-foreground">Settle up</Link>
+            <Link href={`/trip/${trip.code}/settlements?record=1`} className="flex h-11 items-center justify-center rounded-[12px] bg-white/10 text-xs font-extrabold text-white">Record payment</Link>
+          </div>
         </div>
-        <div className="rounded-[14px] border border-border bg-white p-5">
+        <div className="rounded-[16px] border border-border bg-white p-4 md:rounded-[14px] md:p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Total trip spend</p>
           <p className="font-heading text-[22px] font-extrabold">{formatMoney(result.summary.totalExpenses, result.baseCurrency)}</p>
           <p className="mt-1 text-xs text-muted-foreground">{secondaryLabel(result.summary.totalExpenses)}</p>
         </div>
-        <div className="rounded-[14px] border border-border bg-white p-5">
+        <div className="rounded-[16px] border border-border bg-white p-4 md:rounded-[14px] md:p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Members</p>
           <p className="font-heading text-[22px] font-extrabold">{participants.length}</p>
         </div>
@@ -145,9 +165,9 @@ export function Dashboard() {
           const settled = value.abs().lessThan("0.5")
           return (
             <div key={row.userId} className="flex items-center gap-3.5 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
-              <span className="w-[130px] shrink-0 truncate text-sm font-semibold">{nameFor(row.userId, row.user.name || row.user.email)}</span>
+              <span className="w-[92px] shrink-0 truncate text-sm font-semibold md:w-[130px]">{nameFor(row.userId, row.user.name || row.user.email)}</span>
               <BalanceBar fraction={Math.abs(value.toNumber()) / maxBalance} owed={owed} />
-              <div className="w-[170px] shrink-0 text-right">
+              <div className="w-[112px] shrink-0 text-right md:w-[170px]">
                 <span className={cn("text-[13px] font-bold", settled ? "text-muted-foreground" : owed ? "text-success" : "text-destructive")}>
                   {settled ? "settled up" : `${owed ? "is owed " : "owes "}${formatMoney(value.abs(), result.baseCurrency)}`}
                 </span>

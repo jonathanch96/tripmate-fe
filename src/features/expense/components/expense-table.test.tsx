@@ -52,20 +52,20 @@ describe("ExpenseTable", () => {
   it("shows no secondary line for an expense already in the trip's base currency", () => {
     const expenses = [baseExpense({})]
     render(<ExpenseTable trip={trip} expenses={expenses} categories={[]} participants={participants} pendingAction={false} onEdit={noop} onDelete={noop} onApprove={noop} onReject={noop} />, { wrapper: Wrapper })
-    expect(screen.getByText("THB 1,500.00")).toBeTruthy()
-    expect(screen.queryByText(/≈/)).toBeNull()
+    expect(screen.getAllByText("THB 1,500.00")).toHaveLength(2)
+    expect(screen.queryAllByText(/≈/)).toHaveLength(0)
   })
 
   it("shows the exact charged-amount override as the base-currency line when one is set", async () => {
     const expenses = [baseExpense({ currency: "IDR", amount: "1500.00", chargedAmount: "84000.00", chargedCurrency: "THB" })]
     render(<ExpenseTable trip={trip} expenses={expenses} categories={[]} participants={participants} pendingAction={false} onEdit={noop} onDelete={noop} onApprove={noop} onReject={noop} />, { wrapper: Wrapper })
-    expect(await screen.findByText("≈ THB 84,000.00")).toBeTruthy()
+    expect(await screen.findAllByText("≈ THB 84,000.00")).toHaveLength(2)
   })
 
   it("falls back to the trip's saved rate when there's no charged-amount override", async () => {
     const expenses = [baseExpense({ currency: "IDR", amount: "450.00", chargedAmount: null, chargedCurrency: null })]
     render(<ExpenseTable trip={trip} expenses={expenses} categories={[]} participants={participants} pendingAction={false} onEdit={noop} onDelete={noop} onApprove={noop} onReject={noop} />, { wrapper: Wrapper })
     // 1 THB = 450 IDR, so IDR 450 converts to THB 1.00 at the saved rate.
-    await waitFor(() => expect(screen.getByText("≈ THB 1.00")).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText("≈ THB 1.00")).toHaveLength(2))
   })
 })

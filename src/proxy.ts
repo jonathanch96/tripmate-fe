@@ -10,4 +10,4 @@ export async function proxy(request: NextRequest) {
   return NextResponse.redirect(login)
 }
 
-export const config = { matcher: ["/trips/:path*", "/trip/:path*"] }
+export const config = { matcher: ["/trips/:path*", "/trip/:path*", "/analytics/:path*", "/account/:path*"] }

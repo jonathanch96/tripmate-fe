@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
+import type { ReactElement } from "react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -15,7 +16,7 @@ import { changePasswordSchema, type ChangePasswordInput } from "@/features/auth/
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
 
-export function ChangePasswordDialog() {
+export function ChangePasswordDialog({ trigger }: { trigger?: ReactElement } = {}) {
   const [open, setOpen] = useState(false)
   const form = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
@@ -45,7 +46,7 @@ export function ChangePasswordDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) form.reset() }}>
-      <DialogTrigger render={<DropdownMenuItem>Change password</DropdownMenuItem>} />
+      <DialogTrigger render={trigger ?? <DropdownMenuItem>Change password</DropdownMenuItem>} />
       <DialogContent className="rounded-[20px] sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="font-heading text-[19px] font-extrabold">Change password</DialogTitle>

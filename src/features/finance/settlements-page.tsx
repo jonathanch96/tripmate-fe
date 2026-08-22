@@ -1,6 +1,7 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useSearchParams } from "next/navigation"
 import { useState, type FormEvent } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,9 +36,10 @@ function defaultSettlementDate(trip: Trip) {
 
 export function SettlementsPage() {
   const { trip, participants } = useTrip(), client = useQueryClient()
+  const search = useSearchParams()
   const empty = { fromUserId: participants[0]?.userId ?? "", toUserId: participants[1]?.userId ?? "", amount: "", currency: trip.baseCurrency, method: "bank_transfer" as const, note: "", date: defaultSettlementDate(trip) }
   const [draft, setDraft] = useState<Draft>(empty), [formError, setFormError] = useState("")
-  const [recordOpen, setRecordOpen] = useState(false)
+  const [recordOpen, setRecordOpen] = useState(search.get("record") === "1" && !trip.isArchived)
   // Set while editing an existing row; From/To can't be changed once recorded, so the dialog
   // reuses the same form but locks those two fields and PATCHes instead of POSTing.
   const [editingRow, setEditingRow] = useState<Settlement | null>(null)
@@ -84,8 +86,8 @@ export function SettlementsPage() {
     <div className="mb-[22px] flex items-end justify-between gap-3">
       <div><h1 className="font-heading text-[26px] font-extrabold">Settlements</h1><p className="mt-1.5 text-sm text-muted-foreground">Record a payment between members to update balances.</p></div>
       <Dialog open={recordOpen} onOpenChange={closeRecordDialog}>
-        <DialogTrigger render={<Button className="font-bold">+ Record settlement</Button>} />
-        <DialogContent className="rounded-[20px] sm:max-w-lg"><DialogHeader><DialogTitle className="font-heading text-[19px] font-extrabold">{editingRow ? "Edit settlement" : "Record settlement"}</DialogTitle><DialogDescription>{editingRow ? "Who's paying whom can't change here — delete and re-record it instead if that's wrong." : "Log a payment between two participants. The planner approves it if this trip requires approval."}</DialogDescription></DialogHeader>
+        <DialogTrigger render={<Button disabled={trip.isArchived} className="font-bold"><span className="md:hidden">+ Record payment</span><span className="hidden md:inline">+ Record settlement</span></Button>} />
+        <DialogContent className="rounded-[20px] max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:rounded-t-[24px] sm:max-w-lg"><DialogHeader><DialogTitle className="font-heading text-[19px] font-extrabold">{editingRow ? "Edit settlement" : "Record payment"}</DialogTitle><DialogDescription>{editingRow ? "Who's paying whom can't change here — delete and re-record it instead if that's wrong." : "Log a payment between two participants. The planner approves it if this trip requires approval."}</DialogDescription></DialogHeader>
           <form className="grid gap-3 sm:grid-cols-2" method="post" onSubmit={submit}>
             <label className="space-y-1.5 text-sm font-semibold">From (who is paying)<NativeSelect className="w-full font-normal" disabled={Boolean(editingRow)} value={draft.fromUserId} onChange={(e) => setDraft({ ...draft, fromUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
             <label className="space-y-1.5 text-sm font-semibold">To (who receives it)<NativeSelect className="w-full font-normal" disabled={Boolean(editingRow)} value={draft.toUserId} onChange={(e) => setDraft({ ...draft, toUserId: e.target.value })}>{participants.map((p) => <NativeSelectOption key={p.userId} value={p.userId}>{names.get(p.userId)}</NativeSelectOption>)}</NativeSelect></label>
@@ -109,7 +111,7 @@ export function SettlementsPage() {
           {balances.data.debts.map((debt, i) => (
             <div key={i} className="flex flex-wrap items-center justify-between gap-2 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
               <span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{formatMoney(debt.amount, debt.currency)}</strong></span>
-              <Button size="sm" className="font-bold" onClick={() => prefill(debt)}>Settle this</Button>
+              <Button size="sm" className="font-bold" disabled={trip.isArchived} onClick={() => prefill(debt)}>Mark as paid</Button>
             </div>
           ))}
         </div>
@@ -119,7 +121,31 @@ export function SettlementsPage() {
     <h3 className="mb-3.5 font-heading text-[15px] font-extrabold">History</h3>
     {actionError ? <p role="alert" className="mb-2 text-sm text-destructive">{actionError}</p> : null}
     {history.isLoading ? <LoadingState label="Loading settlements…" /> : history.data?.length ? (
-      <div className="overflow-hidden rounded-[14px] border border-border bg-white">
+      <>
+      <div className="space-y-3 md:hidden">
+        {history.data.map((row) => (
+          <article key={row.id} className="rounded-[16px] border border-border bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold">{names.get(row.fromUserId) ?? row.fromUser?.name ?? "Participant"} → {names.get(row.toUserId) ?? row.toUser?.name ?? "Participant"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{row.date} · {row.method === "bank_transfer" ? "Bank transfer" : "Cash"}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-sm font-extrabold tabular-nums">{formatMoney(row.amount, row.currency)}</p>
+                <Badge className="mt-1" variant={row.status === "pending" ? "secondary" : row.status === "rejected" ? "destructive" : "outline"}>{row.status}</Badge>
+              </div>
+            </div>
+            {!trip.isArchived && (row.canEdit || row.canDelete || (trip.canEditSettings && row.status === "pending")) ? (
+              <div className="mt-3 flex justify-end gap-2 border-t border-border pt-3">
+                {row.canEdit ? <Button size="sm" variant="outline" disabled={action.isPending} onClick={() => openEdit(row)}>Edit</Button> : null}
+                {trip.canEditSettings && row.status === "pending" ? <Button size="sm" disabled={action.isPending} onClick={() => action.mutate({ row, action: "approve" })}>Approve</Button> : null}
+                {row.canDelete ? <Button size="sm" variant="ghost" className="text-destructive" disabled={action.isPending} onClick={() => action.mutate({ row, action: "delete" })}>Delete</Button> : null}
+              </div>
+            ) : null}
+          </article>
+        ))}
+      </div>
+      <div className="hidden overflow-hidden rounded-[14px] border border-border bg-white md:block">
         <Table>
           <TableHeader><TableRow className="border-b-border bg-muted hover:bg-muted">
             <TableHead className="h-auto py-3 pl-5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">Date</TableHead>
@@ -148,6 +174,7 @@ export function SettlementsPage() {
           </TableRow>)}</TableBody>
         </Table>
       </div>
+      </>
     ) : <div className="rounded-2xl border-[1.5px] border-dashed border-border px-6 py-10 text-center text-[13px] text-muted-foreground">No settlements yet. Once someone pays back, record it here.</div>}
 
     <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectError("") } }}>

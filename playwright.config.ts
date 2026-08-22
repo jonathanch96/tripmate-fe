@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test"
 
 const frontendURL = "http://localhost:3100"
 const backendURL = "http://localhost:18081"
-const backendDirectory = path.resolve(import.meta.dirname, "../jblabs-tripmate-be")
+const backendDirectory = path.resolve(import.meta.dirname, "../tripmate-be")
 const managedServers = process.env.PLAYWRIGHT_EXTERNAL_SERVERS !== "true"
 
 export default defineConfig({
@@ -13,10 +13,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: { baseURL: process.env.PLAYWRIGHT_BASE_URL ?? frontendURL, trace: "retain-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", testIgnore: /mobile-.*\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
+    { name: "mobile-chromium", testMatch: /mobile-.*\.spec\.ts/, use: { ...devices["iPhone 13"], viewport: { width: 390, height: 844 } } },
+  ],
   webServer: managedServers ? [
     {
-      command: "POSTGRES_HOST_PORT=55432 docker compose up -d --wait postgres && PATH=/usr/local/go/bin:$PATH make migrate-up && docker compose exec -T postgres psql -U tripmate -d tripmate -c \"DELETE FROM tripmate.trips WHERE planner_id IN (SELECT id FROM tripmate.users WHERE email IN ('playwright-session@example.invalid','playwright-planner@example.invalid','playwright-member@example.invalid','playwright-joiner@example.invalid','playwright-money-planner@example.invalid','playwright-money-member@example.invalid')); DELETE FROM tripmate.users WHERE email IN ('playwright-session@example.invalid','playwright-planner@example.invalid','playwright-member@example.invalid','playwright-joiner@example.invalid','playwright-money-planner@example.invalid','playwright-money-member@example.invalid');\" && APP_PORT=18081 JWT_ACCESS_TTL=4s PATH=/usr/local/go/bin:$PATH go run ./adapters/rest",
+      command: "POSTGRES_HOST_PORT=55432 docker compose up -d --wait postgres && PATH=/usr/local/go/bin:$PATH make migrate-up && docker compose exec -T postgres psql -U tripmate -d tripmate -c \"DELETE FROM tripmate.trips WHERE planner_id IN (SELECT id FROM tripmate.users WHERE email IN ('playwright-session@example.invalid','playwright-planner@example.invalid','playwright-member@example.invalid','playwright-joiner@example.invalid','playwright-money-planner@example.invalid','playwright-money-member@example.invalid','playwright-mobile@example.invalid')); DELETE FROM tripmate.users WHERE email IN ('playwright-session@example.invalid','playwright-planner@example.invalid','playwright-member@example.invalid','playwright-joiner@example.invalid','playwright-money-planner@example.invalid','playwright-money-member@example.invalid','playwright-mobile@example.invalid');\" && APP_PORT=18081 JWT_ACCESS_TTL=4s PATH=/usr/local/go/bin:$PATH go run ./adapters/rest",
       cwd: backendDirectory,
       url: `${backendURL}/readyz`,
       timeout: 120_000,

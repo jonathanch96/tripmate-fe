@@ -35,12 +35,14 @@ export default async function TripLayout({
 
   return (
     <TripProvider trip={trip} participants={participants}>
-      <div className="flex min-h-screen">
+      <div className="flex min-h-dvh">
         <TripSidebarNav tripCode={tripCode} trip={trip} participants={participants} />
         <div className="min-w-0 flex-1">
+          <TripMobileNav tripCode={tripCode} trip={trip} />
           {trip.isArchived ? <ArchivedBanner tripCode={tripCode} canRestore={trip.canEditSettings} /> : null}
-          <TripMobileNav tripCode={tripCode} />
-          <div className="mx-auto max-w-[1080px] px-6 py-8 md:px-12 md:py-10">{children}</div>
+          <fieldset disabled={trip.isArchived} className="contents">
+            <div className="mobile-page-bottom mx-auto max-w-[1080px] px-4 py-6 md:px-12 md:py-10">{children}</div>
+          </fieldset>
         </div>
       </div>
     </TripProvider>

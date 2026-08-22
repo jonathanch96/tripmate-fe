@@ -10,6 +10,7 @@ import type { Participant, Trip } from "@/features/trip/types"
 const apiFetch = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/api-client", () => ({ apiFetch }))
 vi.mock("next-auth/react", () => ({
+  signOut: vi.fn(),
   useSession: () => ({ data: { user: { id: "user-1" } } }),
 }))
 
@@ -69,6 +70,7 @@ describe("SettingsPanel", () => {
   afterEach(cleanup)
 
   beforeEach(() => {
+    window.history.replaceState({}, "", "/trip/ABC123/settings")
     apiFetch.mockReset()
     apiFetch.mockImplementation((path: string) =>
       Promise.resolve({ success: true, data: path.includes("/invitations") ? [] : trip }),

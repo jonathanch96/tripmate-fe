@@ -106,7 +106,7 @@ export function LedgerPage() {
         <h1 className="font-heading text-[26px] font-extrabold">Ledger</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">Every transaction for one person, like a bank statement.</p>
       </div>
-      <div className="flex flex-wrap gap-2.5">
+      <div className="grid w-full grid-cols-2 gap-2.5 md:flex md:w-auto md:flex-wrap">
         <NativeSelect aria-label="Member" value={memberId} onChange={(event) => memberChanged(event.target.value)} className="font-semibold">
           {participants.map((participant) => <NativeSelectOption key={participant.userId} value={participant.userId}>{participantName(participant)}</NativeSelectOption>)}
         </NativeSelect>
@@ -115,7 +115,7 @@ export function LedgerPage() {
           {againstOptions.map((participant) => <NativeSelectOption key={participant.userId} value={participant.userId}>Against: {participantName(participant)}</NativeSelectOption>)}
         </NativeSelect>
         {secondaryOptions.length > 0 ? (
-          <NativeSelect aria-label="Show a secondary currency" value={secondaryCurrency} onChange={(event) => setSecondaryCurrency(event.target.value)}>
+          <NativeSelect aria-label="Show a secondary currency" value={secondaryCurrency} onChange={(event) => setSecondaryCurrency(event.target.value)} className="col-span-2 md:col-span-1">
             <NativeSelectOption value="">Show in {trip.baseCurrency} only</NativeSelectOption>
             {secondaryOptions.map((option) => <NativeSelectOption key={option.code} value={option.code}>Also show in {option.code}</NativeSelectOption>)}
           </NativeSelect>
@@ -123,7 +123,7 @@ export function LedgerPage() {
       </div>
     </div>
 
-    <div className="mb-5 flex gap-2">
+    <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
       <Button type="button" variant={sign === "all" ? "default" : "outline"} size="sm" onClick={() => setSign("all")}>All</Button>
       <Button type="button" variant={sign === "positive" ? "default" : "outline"} size="sm" onClick={() => setSign("positive")}>+ Owed to you</Button>
       <Button type="button" variant={sign === "negative" ? "default" : "outline"} size="sm" onClick={() => setSign("negative")}>− You owe</Button>
@@ -138,26 +138,41 @@ export function LedgerPage() {
         </div>
       </div>
       {visibleEntries.length ? (
-        <div className="overflow-hidden rounded-[14px] border border-border bg-white">
-          <div className="grid gap-3 border-b bg-muted px-5 py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase" style={{ gridTemplateColumns: GRID_COLS }}>
+        <div className="overflow-hidden rounded-[16px] border border-border bg-white md:rounded-[14px]">
+          <div className="hidden gap-3 border-b bg-muted px-5 py-3 text-[11px] font-bold tracking-wide text-muted-foreground uppercase md:grid" style={{ gridTemplateColumns: GRID_COLS }}>
             <span>Date</span><span>Description</span><span className="text-right">Amount</span><span className="text-right">Balance</span>
           </div>
           {visibleEntries.map((entry, index) => {
             const delta = safeDecimal(entry.delta)
             return (
-              <div key={index} className="grid items-center gap-3 border-b border-[oklch(0.95_0.006_60)] px-5 py-3.5 last:border-0" style={{ gridTemplateColumns: GRID_COLS }}>
-                <span className="text-[13px] text-muted-foreground">{entry.date}</span>
-                <div>
-                  <p className="text-sm font-semibold">{entryTitle(entry, names)}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{entryDetail(entry, query.data!.baseCurrency, categoryName, !!againstId, counterpartyName)}</p>
+              <div key={index} className="border-b border-[oklch(0.95_0.006_60)] last:border-0">
+                <div className="flex items-start gap-3 px-4 py-4 md:hidden">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-extrabold">{entryTitle(entry, names)}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{entryDetail(entry, query.data!.baseCurrency, categoryName, !!againstId, counterpartyName)}</p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">{entry.date} · Balance {formatMoney(entry.runningBalance, query.data.baseCurrency)}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className={cn("text-sm font-extrabold tabular-nums", delta.isNegative() ? "text-destructive" : "text-success")}>
+                      {`${delta.isNegative() ? "-" : "+"}${formatMoney(delta.abs(), query.data.baseCurrency)}`}
+                    </span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{secondaryLabel(delta.abs())}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className={cn("text-sm font-bold tabular-nums", delta.isNegative() ? "text-destructive" : "text-success")}>
-                    {`${delta.isNegative() ? "-" : "+"}${formatMoney(delta.abs(), query.data.baseCurrency)}`}
-                  </span>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{secondaryLabel(delta.abs())}</p>
+                <div className="hidden items-center gap-3 px-5 py-3.5 md:grid" style={{ gridTemplateColumns: GRID_COLS }}>
+                  <span className="text-[13px] text-muted-foreground">{entry.date}</span>
+                  <div>
+                    <p className="text-sm font-semibold">{entryTitle(entry, names)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{entryDetail(entry, query.data!.baseCurrency, categoryName, !!againstId, counterpartyName)}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={cn("text-sm font-bold tabular-nums", delta.isNegative() ? "text-destructive" : "text-success")}>
+                      {`${delta.isNegative() ? "-" : "+"}${formatMoney(delta.abs(), query.data.baseCurrency)}`}
+                    </span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{secondaryLabel(delta.abs())}</p>
+                  </div>
+                  <span className="text-right text-[13px] text-muted-foreground tabular-nums">{formatMoney(entry.runningBalance, query.data.baseCurrency)}</span>
                 </div>
-                <span className="text-right text-[13px] text-muted-foreground tabular-nums">{formatMoney(entry.runningBalance, query.data.baseCurrency)}</span>
               </div>
             )
           })}

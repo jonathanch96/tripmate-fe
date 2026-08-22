@@ -13,7 +13,7 @@ export function SiteHeader() {
   const { data: session, status } = useSession()
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-50 hidden border-b bg-white/90 backdrop-blur md:block">
       <div className="mx-auto flex h-[68px] max-w-6xl items-center justify-between px-10">
         <Link href={status === "authenticated" ? "/trips" : "/"} className="flex items-center gap-2.5 font-heading text-lg font-extrabold tracking-tight">
           <BrandMark />

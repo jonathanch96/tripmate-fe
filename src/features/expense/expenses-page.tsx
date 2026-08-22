@@ -1,6 +1,7 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { PlusIcon } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -47,7 +48,18 @@ export function ExpensesPage() {
         <h1 className="font-heading text-[26px] font-extrabold">Expenses</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">Record each bill once, even when several people paid.</p>
       </div>
-      <ExpenseDialog trip={trip} participants={participants} pending={create.isPending} onSubmit={(payload) => create.mutate(payload)} onReceiptConverted={refresh} />
+      <ExpenseDialog
+        trip={trip}
+        participants={participants}
+        pending={create.isPending}
+        onSubmit={(payload) => create.mutate(payload)}
+        onReceiptConverted={refresh}
+        trigger={
+          <Button disabled={trip.isArchived} className="fixed right-5 bottom-[84px] z-40 h-14 rounded-[18px] px-5 font-extrabold shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] md:static md:h-9 md:rounded-md md:px-4 md:shadow-none">
+            <PlusIcon className="size-5" /> Add expense
+          </Button>
+        }
+      />
     </div>
     {editing ? <ExpenseDialog key={editing.id} trip={trip} participants={participants} expense={editing} open onOpenChange={(open) => { if (!open) setEditing(null) }} pending={update.isPending} onSubmit={(payload) => update.mutate({ expense: editing, payload })} /> : null}
     <div className="mb-5"><ExpenseFilters participants={participants} currencies={currencies} categories={categories.data ?? []} /></div>

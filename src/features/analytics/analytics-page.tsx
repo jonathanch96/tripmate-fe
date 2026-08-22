@@ -64,9 +64,11 @@ export function AnalyticsPage() {
   const countryTotals = new Map<string, Decimal>()
   let grandTotal = new Decimal(0)
   let unconvertedTrips = 0
+  let expenseCount = 0
 
   tripList.forEach((trip, index) => {
     const expenses = (expenseQueries[index]?.data ?? []).filter((expense) => expense.status === "approved")
+    expenseCount += expenses.length
     const categories = categoryQueries[index]?.data ?? []
     const rateRows = rateQueries[index]?.data ?? []
     const isBaseTarget = trip.baseCurrency.toUpperCase() === targetCurrency
@@ -104,11 +106,12 @@ export function AnalyticsPage() {
 
   return (
     <section>
-      <Link href="/trips" className="mb-3.5 inline-block text-[13px] font-semibold text-muted-foreground hover:text-foreground">‹ My trips</Link>
+      <Link href="/trips" className="mb-3.5 hidden text-[13px] font-semibold text-muted-foreground hover:text-foreground md:inline-block">‹ My trips</Link>
       <div className="mb-6.5 flex flex-wrap items-end justify-between gap-3.5">
         <div>
-          <h1 className="font-heading text-[28px] font-extrabold">Analytics</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">Spend across all your trips, converted to {targetCurrency} for comparison.</p>
+          <p className="text-sm font-semibold text-muted-foreground md:hidden">Across every adventure</p>
+          <h1 className="mt-0.5 font-heading text-[28px] font-extrabold md:mt-0">Analytics</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Spend across all your trips, converted to {targetCurrency}.</p>
         </div>
         {currencyOptions.length > 1 ? (
           <NativeSelect aria-label="Compare trips in this currency" value={targetCurrency} onChange={(event) => setSelectedCurrency(event.target.value)} className="text-[13px]">
@@ -125,18 +128,22 @@ export function AnalyticsPage() {
         </p>
       ) : null}
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-[14px] border border-border bg-white p-5">
+      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+        <div className="col-span-2 rounded-[18px] bg-[oklch(0.24_0.045_255)] p-5 text-white md:col-span-1 md:rounded-[14px] md:border md:border-border md:bg-white md:text-foreground">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Total spend</p>
-          <p className="font-heading text-[22px] font-extrabold">{formatMoney(grandTotal, targetCurrency)}</p>
+          <p className="font-heading text-[26px] font-extrabold md:text-[22px]">{formatMoney(grandTotal, targetCurrency)}</p>
         </div>
-        <div className="rounded-[14px] border border-border bg-white p-5">
+        <div className="rounded-[16px] border border-border bg-white p-4 md:rounded-[14px] md:p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Trips</p>
           <p className="font-heading text-[22px] font-extrabold">{tripList.length}</p>
         </div>
-        <div className="rounded-[14px] border border-border bg-white p-5">
+        <div className="rounded-[16px] border border-border bg-white p-4 md:rounded-[14px] md:p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Countries visited</p>
           <p className="font-heading text-[22px] font-extrabold">{countryCount}</p>
+        </div>
+        <div className="rounded-[16px] border border-border bg-white p-4 md:hidden">
+          <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Expenses</p>
+          <p className="font-heading text-[22px] font-extrabold">{expenseCount}</p>
         </div>
       </div>
 

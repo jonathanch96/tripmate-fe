@@ -47,7 +47,51 @@ export function ExpenseTable({ trip, expenses, categories, participants, pending
     </div>
   )
   const categoryById = new Map(categories.map((category) => [category.id, category.name]))
-  return <div className="overflow-hidden rounded-[14px] border border-border bg-white">
+  return <>
+    <div className="space-y-3 md:hidden">
+      {expenses.map((expense) => {
+        const categoryName = expense.categoryId ? categoryById.get(expense.categoryId) : undefined
+        const base = baseAmountLine(expense, trip, rates.data ?? [])
+        return (
+          <article key={expense.id} className="overflow-hidden rounded-[16px] border border-border bg-white">
+            <button
+              type="button"
+              disabled={!expense.canEdit}
+              onClick={() => onEdit(expense)}
+              className="flex w-full items-start gap-3 p-4 text-left disabled:cursor-default"
+            >
+              <span className={cn("grid size-11 shrink-0 place-items-center rounded-[12px] border text-lg", categoryName ? categoryColorFor(categoryName) : "bg-muted")}>{categoryName?.slice(0, 1) ?? "•"}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-start justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-extrabold">{expense.description}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">Paid by {expense.payers.map((payer) => names.get(payer.userId) ?? payer.user?.name ?? payer.userId.slice(0, 8)).join(", ")}</span>
+                  </span>
+                  <span className="shrink-0 text-right text-sm font-extrabold tabular-nums">
+                    {formatMoney(expense.amount, expense.currency)}
+                    {base ? <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">≈ {base}</span> : null}
+                  </span>
+                </span>
+                <span className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <span>{expense.expenseDate}</span>
+                  <span>·</span>
+                  <span>{SPLIT_LABEL[expense.splitType]}</span>
+                  <Badge variant={STATUS_VARIANT[expense.status]} className="ml-auto">{expense.status}</Badge>
+                </span>
+              </span>
+            </button>
+            {expense.canApprove || expense.canReject || expense.canDelete ? (
+              <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2.5">
+                {expense.canApprove ? <Button size="sm" disabled={pendingAction} onClick={() => onApprove(expense)}>{pendingAction ? <Spinner /> : "Approve"}</Button> : null}
+                {expense.canReject ? <Button size="sm" variant="outline" disabled={pendingAction} onClick={() => onReject(expense)}>Reject</Button> : null}
+                {expense.canDelete ? <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={pendingAction} onClick={() => onDelete(expense)}>Delete</Button> : null}
+              </div>
+            ) : null}
+          </article>
+        )
+      })}
+    </div>
+    <div className="hidden overflow-hidden rounded-[14px] border border-border bg-white md:block">
     <Table>
       <TableHeader>
         <TableRow className="border-b-border bg-muted hover:bg-muted">
@@ -81,5 +125,6 @@ export function ExpenseTable({ trip, expenses, categories, participants, pending
         })}
       </TableBody>
     </Table>
-  </div>
+    </div>
+  </>
 }
