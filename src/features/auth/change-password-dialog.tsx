@@ -1,7 +1,7 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import type { ReactElement } from "react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
@@ -11,9 +11,10 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { changePasswordSchema, type ChangePasswordInput } from "@/features/auth/schema"
+import { changeExistingPasswordSchema, changePasswordSchema, type ChangePasswordInput } from "@/features/auth/schema"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
+import { profileQuery } from "@/features/auth/profile"
 
 // The dialog can drive itself from its own trigger, or be opened by a caller that has nowhere
 // safe to put one — a dropdown item, say, whose menu unmounts the moment it is chosen and would
@@ -26,8 +27,13 @@ export function ChangePasswordDialog({ trigger, open: controlledOpen, onOpenChan
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = onOpenChange ?? setInternalOpen
+  // Only an account that has a password can be asked to re-enter it. Until the profile loads,
+  // assume there is one: asking for a password the account turns out not to have is a moment's
+  // confusion, while dropping the field from an account that has one looks like a security hole.
+  const profile = useQuery(profileQuery())
+  const hasPassword = profile.data?.hasPassword ?? true
   const form = useForm<ChangePasswordInput>({
-    resolver: zodResolver(changePasswordSchema),
+    resolver: zodResolver(hasPassword ? changeExistingPasswordSchema : changePasswordSchema),
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   })
 
@@ -39,7 +45,7 @@ export function ChangePasswordDialog({ trigger, open: controlledOpen, onOpenChan
         body: JSON.stringify(values),
       }),
     onSuccess: () => {
-      toast.success("Password changed")
+      toast.success(hasPassword ? "Password changed" : "Password set")
       form.reset()
       setOpen(false)
     },
@@ -59,14 +65,19 @@ export function ChangePasswordDialog({ trigger, open: controlledOpen, onOpenChan
       ) : null}
       <DialogContent className="rounded-[20px] sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle className="font-heading text-[19px] font-extrabold">Change password</DialogTitle>
-          <DialogDescription>Use at least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.</DialogDescription>
+          <DialogTitle className="font-heading text-[19px] font-extrabold">{hasPassword ? "Change password" : "Set a password"}</DialogTitle>
+          <DialogDescription>
+            {hasPassword ? null : "You signed in with Google, so this account has no password yet. Setting one lets you sign in with your email as well. "}
+            Use at least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" method="post" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
-            <FormField control={form.control} name="currentPassword" render={({ field }) => (
-              <FormItem><FormLabel>Current password</FormLabel><FormControl><Input type="password" autoComplete="current-password" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
+            {hasPassword ? (
+              <FormField control={form.control} name="currentPassword" render={({ field }) => (
+                <FormItem><FormLabel>Current password</FormLabel><FormControl><Input type="password" autoComplete="current-password" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+              )} />
+            ) : null}
             <FormField control={form.control} name="newPassword" render={({ field }) => (
               <FormItem><FormLabel>New password</FormLabel><FormControl><Input type="password" autoComplete="new-password" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
@@ -75,7 +86,7 @@ export function ChangePasswordDialog({ trigger, open: controlledOpen, onOpenChan
             )} />
             <DialogFooter>
               <Button type="submit" className="w-full font-bold" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Changing…" : "Change password"}
+                {form.formState.isSubmitting ? "Saving…" : hasPassword ? "Change password" : "Set password"}
               </Button>
             </DialogFooter>
           </form>

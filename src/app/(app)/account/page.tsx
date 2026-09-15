@@ -11,11 +11,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LoadingState } from "@/components/ui/spinner"
 import { ChangePasswordDialog } from "@/features/auth/change-password-dialog"
+import { profileQuery, type Profile } from "@/features/auth/profile"
 import { apiFetch } from "@/lib/api-client"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { apiErrorMessage } from "@/lib/envelope"
-
-type Profile = { id: string; name: string; email: string; avatarUrl?: string | null }
+import { qk } from "@/lib/query-keys"
 
 function SettingRow({ icon: Icon, title, detail, trailing }: {
   icon: typeof BellIcon
@@ -40,10 +40,7 @@ export default function AccountPage() {
   const client = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState("")
-  const profile = useQuery({
-    queryKey: ["tripmate", "profile"],
-    queryFn: async () => (await apiFetch<Profile>("/api/users/me")).data!,
-  })
+  const profile = useQuery(profileQuery())
 
   const update = useMutation({
     mutationFn: () => apiFetch<Profile>("/api/users/me", {
@@ -54,7 +51,7 @@ export default function AccountPage() {
     onSuccess: async () => {
       toast.success("Profile updated")
       setEditing(false)
-      await client.invalidateQueries({ queryKey: ["tripmate", "profile"] })
+      await client.invalidateQueries({ queryKey: qk.profile() })
     },
     onError: (error) => toast.error(apiErrorMessage(error, "Could not update profile")),
   })
