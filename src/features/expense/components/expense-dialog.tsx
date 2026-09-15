@@ -17,6 +17,7 @@ import { PayerEditor } from "@/features/expense/components/payer-editor"
 import { SplitEditor } from "@/features/expense/components/split-editor"
 import { ReceiptWorkflow } from "@/features/receipt/components/receipt-workflow"
 import { listExpenseCategories } from "@/features/expense/category-api"
+import { defaultExpenseDate, rememberLastExpenseDate } from "@/features/expense/last-expense-date"
 import { expenseCreateSchema } from "@/features/expense/schema"
 import type { Expense, ExpensePayload, MoneyRow, SplitType } from "@/features/expense/types"
 import { convertToBase, otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
@@ -44,7 +45,10 @@ export function expenseFormFromExpense(expense: Expense): ExpenseFormState {
 }
 
 export function ExpenseDialog({ trip, participants, expense, pending, open: controlledOpen, onOpenChange, onSubmit, onReceiptConverted, trigger }: { trip: Trip; participants: Participant[]; expense?: Expense; pending: boolean; open?: boolean; onOpenChange?: (open: boolean) => void; onSubmit: (payload: ExpensePayload) => void; onReceiptConverted?: () => void; trigger?: ReactElement }) {
-  const initial = expense ? expenseFormFromExpense(expense) : { expenseDate: trip.startDate, description: "", amount: "", currency: trip.baseCurrency, categoryId: null as string | null, splitType: "equal" as const, payers: [{ userId: participants[0]?.userId ?? "", amount: "" }], participants: participants.map((participant) => participant.userId), splits: undefined, note: null }
+  // Read once on mount so the date cannot shift under the user mid-edit, and so the remembered
+  // value is not re-read from storage on every keystroke.
+  const [initialDate] = useState(() => (expense ? expense.expenseDate : defaultExpenseDate(trip)))
+  const initial = expense ? expenseFormFromExpense(expense) : { expenseDate: initialDate, description: "", amount: "", currency: trip.baseCurrency, categoryId: null as string | null, splitType: "equal" as const, payers: [{ userId: participants[0]?.userId ?? "", amount: "" }], participants: participants.map((participant) => participant.userId), splits: undefined, note: null }
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = onOpenChange ?? setInternalOpen
@@ -176,7 +180,7 @@ export function ExpenseDialog({ trip, participants, expense, pending, open: cont
         <PayerEditor amount={amount} currency={currency} rows={payers} participants={participants} onChange={setPayers} />
         <SplitEditor amount={amount} currency={currency} type={splitType} selected={selected} manual={manual} participants={participants} onType={splitTypeChanged} onSelected={setSelected} onManual={setManual} />
         <div className="space-y-1.5"><Label htmlFor="expense-note">Note</Label><Textarea id="expense-note" rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></div>
-      </div><DialogFooter className="mx-0 mt-4 mb-0 rounded-b-[20px] bg-muted/50 px-8 py-4"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button className="font-bold" disabled={!valid || pending} onClick={() => { onSubmit(expenseCreateSchema.parse(payload)); setOpen(false) }}>{pending ? <><Spinner className="mr-1.5" />Saving…</> : expense ? "Save changes" : "Save expense"}</Button></DialogFooter></TabsContent>
+      </div><DialogFooter className="mx-0 mt-4 mb-0 rounded-b-[20px] bg-muted/50 px-8 py-4"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button className="font-bold" disabled={!valid || pending} onClick={() => { const saved = expenseCreateSchema.parse(payload); if (!expense) rememberLastExpenseDate(trip.code, saved.expenseDate); onSubmit(saved); setOpen(false) }}>{pending ? <><Spinner className="mr-1.5" />Saving…</> : expense ? "Save changes" : "Save expense"}</Button></DialogFooter></TabsContent>
         {!expense ? <TabsContent value="receipt"><ReceiptWorkflow trip={trip} participants={participants} onConverted={() => { setOpen(false); onReceiptConverted?.() }} onManual={(defaults) => {
           setDescription(defaults.description)
           setDate(defaults.expenseDate)

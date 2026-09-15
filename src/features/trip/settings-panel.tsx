@@ -61,6 +61,8 @@ function settingsPayload(trip: Trip): TripUpdateInput {
     name: trip.name,
     baseCurrency: trip.baseCurrency,
     country: trip.country ?? undefined,
+    startDate: trip.startDate,
+    endDate: trip.endDate,
     editPermission: trip.settings.editPermission,
     approvalRequiredExpenses: trip.settings.approvalRequiredExpenses,
     approvalRequiredSettlements: trip.settings.approvalRequiredSettlements,
@@ -181,7 +183,7 @@ function NameEditor({
 type Section = "menu" | "details" | "currencies" | "categories" | "roles" | "members" | "preferences"
 
 const MENU_ITEMS: Array<{ id: Section; label: string; description: string }> = [
-  { id: "details", label: "Trip details", description: "The country (or countries) this trip covers." },
+  { id: "details", label: "Trip details", description: "The dates this trip runs and the country it covers." },
   { id: "currencies", label: "Currencies & exchange rates", description: "Base currency and rates between currencies used on this trip." },
   { id: "categories", label: "Categories", description: "The categories expenses can be tagged with." },
   { id: "roles", label: "Roles & permissions", description: "What owners and members can each do." },
@@ -551,29 +553,78 @@ function PreferencesSection({
 function DetailsSection({
   trip,
   updateCountry,
+  updateDates,
   disabled,
 }: {
   trip: Trip
   updateCountry: (value: string) => void
+  updateDates: (startDate: string, endDate: string) => void
   disabled: boolean
 }) {
+  // Dates save on a button rather than on change like the country above: a date input fires on
+  // every edited segment, so saving as you type would PATCH half-typed years.
+  const [startDate, setStartDate] = useState(trip.startDate)
+  const [endDate, setEndDate] = useState(trip.endDate)
+  const changed = startDate !== trip.startDate || endDate !== trip.endDate
+  const backwards = Boolean(startDate && endDate) && endDate < startDate
+  const editable = trip.canEditSettings && !trip.isArchived && !trip.isFinalized
+
   return (
     <div>
       <SectionTitle>Trip details</SectionTitle>
-      <div className="max-w-lg rounded-[14px] border border-border bg-white p-5">
-        <label className="mb-2 block text-sm font-semibold" htmlFor="trip-details-country">Country</label>
-        <NativeSelect
-          id="trip-details-country"
-          disabled={!trip.canEditSettings || disabled}
-          value={trip.country ?? ""}
-          onChange={(event) => updateCountry(event.target.value)}
-        >
-          <NativeSelectOption value="">Not set</NativeSelectOption>
-          {COUNTRIES.map((country) => (
-            <NativeSelectOption key={country} value={country}>{country}</NativeSelectOption>
-          ))}
-        </NativeSelect>
-        <p className="mt-2.5 text-xs text-muted-foreground">Used to group this trip on the Analytics page.</p>
+      <div className="max-w-lg space-y-5 rounded-[14px] border border-border bg-white p-5">
+        <div>
+          <label className="mb-2 block text-sm font-semibold" htmlFor="trip-details-country">Country</label>
+          <NativeSelect
+            id="trip-details-country"
+            disabled={!trip.canEditSettings || disabled}
+            value={trip.country ?? ""}
+            onChange={(event) => updateCountry(event.target.value)}
+          >
+            <NativeSelectOption value="">Not set</NativeSelectOption>
+            {COUNTRIES.map((country) => (
+              <NativeSelectOption key={country} value={country}>{country}</NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <p className="mt-2.5 text-xs text-muted-foreground">Used to group this trip on the Analytics page.</p>
+        </div>
+        <div className="border-t border-[oklch(0.95_0.006_60)] pt-5">
+          <p className="mb-2 text-sm font-semibold">Trip dates</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-muted-foreground" htmlFor="trip-details-start">Start</label>
+              <Input id="trip-details-start" type="date" className="w-full" disabled={!editable || disabled} value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-muted-foreground" htmlFor="trip-details-end">End</label>
+              <Input id="trip-details-end" type="date" className="w-full" disabled={!editable || disabled} value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+            </div>
+          </div>
+          {backwards ? (
+            <p role="alert" className="mt-2.5 text-xs text-destructive">End date must be on or after start date.</p>
+          ) : (
+            <p className="mt-2.5 text-xs text-muted-foreground">
+              Expenses and settlements can be dated up to a week either side of this window.
+            </p>
+          )}
+          {editable ? (
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                className="font-bold"
+                disabled={!changed || backwards || !startDate || !endDate || disabled}
+                onClick={() => updateDates(startDate, endDate)}
+              >
+                {disabled ? <Spinner /> : "Save dates"}
+              </Button>
+              {changed ? (
+                <Button size="sm" variant="ghost" disabled={disabled} onClick={() => { setStartDate(trip.startDate); setEndDate(trip.endDate) }}>
+                  Cancel
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   )
@@ -662,6 +713,8 @@ export function SettingsPanel() {
               name: payload.name,
               baseCurrency: payload.baseCurrency,
               country: payload.country || null,
+              startDate: payload.startDate ?? current.startDate,
+              endDate: payload.endDate ?? current.endDate,
               settings: {
                 editPermission: payload.editPermission,
                 approvalRequiredExpenses: payload.approvalRequiredExpenses,
@@ -698,6 +751,10 @@ export function SettingsPanel() {
 
   function updateCountry(value: string) {
     settingsMutation.mutate(settingsPayload({ ...trip, country: value }))
+  }
+
+  function updateDates(startDate: string, endDate: string) {
+    settingsMutation.mutate(settingsPayload({ ...trip, startDate, endDate }))
   }
 
   return (
@@ -739,7 +796,7 @@ export function SettingsPanel() {
           </button>
         </div>
       ) : null}
-      {section === "details" ? <DetailsSection trip={trip} updateCountry={updateCountry} disabled={settingsMutation.isPending} /> : null}
+      {section === "details" ? <DetailsSection trip={trip} updateCountry={updateCountry} updateDates={updateDates} disabled={settingsMutation.isPending} /> : null}
       {section === "currencies" ? <CurrenciesSection trip={trip} updateBaseCurrency={updateBaseCurrency} /> : null}
       {section === "categories" ? <CategoriesSection tripCode={trip.code} canEdit={trip.canEditSettings} /> : null}
       {section === "roles" ? <RolesSection /> : null}

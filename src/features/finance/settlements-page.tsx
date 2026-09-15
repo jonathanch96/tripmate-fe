@@ -15,30 +15,20 @@ import { Textarea } from "@/components/ui/textarea"
 import { DisplayCurrencySelect, useDisplayCurrency } from "@/features/finance/display-currency"
 import { otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
 import type { BalanceResult, Settlement, Transfer } from "@/features/finance/types"
+import { clampToTripDates, todayISO } from "@/features/trip/trip-dates"
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
 import { formatMoney } from "@/lib/money"
 import { participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
-import type { Trip } from "@/features/trip/types"
 
 type Draft = { fromUserId: string; toUserId: string; amount: string; currency: string; method: "cash" | "bank_transfer"; note: string; date: string }
-
-// Today, clamped to the trip's own dates - the backend only accepts a date within a week of the
-// trip, and a trip recorded well before or after "today" (an upcoming trip, an old one being
-// settled late) would otherwise default to a date the server immediately rejects.
-function defaultSettlementDate(trip: Trip) {
-  const today = new Date().toISOString().slice(0, 10)
-  if (today < trip.startDate) return trip.startDate
-  if (today > trip.endDate) return trip.endDate
-  return today
-}
 
 export function SettlementsPage() {
   const { trip, participants } = useTrip(), client = useQueryClient()
   const search = useSearchParams()
-  const empty = { fromUserId: participants[0]?.userId ?? "", toUserId: participants[1]?.userId ?? "", amount: "", currency: trip.baseCurrency, method: "bank_transfer" as const, note: "", date: defaultSettlementDate(trip) }
+  const empty = { fromUserId: participants[0]?.userId ?? "", toUserId: participants[1]?.userId ?? "", amount: "", currency: trip.baseCurrency, method: "bank_transfer" as const, note: "", date: clampToTripDates(todayISO(), trip) }
   const [draft, setDraft] = useState<Draft>(empty), [formError, setFormError] = useState("")
   const [recordOpen, setRecordOpen] = useState(search.get("record") === "1" && !trip.isArchived)
   // Set while editing an existing row; From/To can't be changed once recorded, so the dialog
@@ -74,7 +64,7 @@ export function SettlementsPage() {
   })
   const names = participantNameMap(participants)
   const recipient = participants.find((p) => p.userId === draft.toUserId)
-  function prefill(debt: Transfer) { setEditingRow(null); setDraft({ ...draft, fromUserId: debt.fromUserId, toUserId: debt.toUserId, amount: debt.amount, currency: debt.currency, date: defaultSettlementDate(trip) }); setFormError(""); setRecordOpen(true) }
+  function prefill(debt: Transfer) { setEditingRow(null); setDraft({ ...draft, fromUserId: debt.fromUserId, toUserId: debt.toUserId, amount: debt.amount, currency: debt.currency, date: clampToTripDates(todayISO(), trip) }); setFormError(""); setRecordOpen(true) }
   function openEdit(row: Settlement) {
     setEditingRow(row)
     setDraft({ fromUserId: row.fromUserId, toUserId: row.toUserId, amount: row.amount, currency: row.currency, method: row.method, note: row.note ?? "", date: row.date })
