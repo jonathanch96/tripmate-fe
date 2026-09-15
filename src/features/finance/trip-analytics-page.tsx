@@ -1,21 +1,17 @@
 "use client"
 
-import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Decimal from "decimal.js"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState } from "@/components/ui/spinner"
 import { BreakdownBar } from "@/features/analytics/breakdown-bar"
 import { listExpenseCategories } from "@/features/expense/category-api"
 import { listAllExpenses } from "@/features/expense/api"
-import { convertFromBase, convertToBase, otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
-import type { Rate } from "@/features/finance/types"
+import { DisplayCurrencySelect, useDisplayCurrency } from "@/features/finance/display-currency"
+import { convertToBase } from "@/features/finance/rate-pair-helpers"
 import { useTrip } from "@/features/trip/trip-context"
-import { apiFetch } from "@/lib/api-client"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
-import { formatMoney } from "@/lib/money"
 import { participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
 
@@ -31,16 +27,15 @@ function toRows(totals: Map<string, Decimal>): { rows: Row[]; total: Decimal } {
 
 export function TripAnalyticsPage() {
   const { trip, participants } = useTrip()
-  const [secondaryCurrency, setSecondaryCurrency] = useState("")
+  const display = useDisplayCurrency(trip.code, trip.baseCurrency)
 
   const expenses = useQuery({ queryKey: qk.allExpenses(trip.code), queryFn: () => listAllExpenses(trip.code) })
   const categories = useQuery({ queryKey: qk.expenseCategories(trip.code), queryFn: async () => (await listExpenseCategories(trip.code)).data ?? [] })
-  const rates = useQuery({ queryKey: qk.rates(trip.code), queryFn: async () => (await apiFetch<Rate[]>(`/api/trips/${trip.code}/exchange-rates`)).data ?? [] })
 
-  if (expenses.isLoading || categories.isLoading || rates.isLoading) return <LoadingState label="Crunching this trip's numbers…" />
+  if (expenses.isLoading || categories.isLoading || display.isLoading) return <LoadingState label="Crunching this trip's numbers…" />
 
   const approved = (expenses.data ?? []).filter((expense) => expense.status === "approved")
-  const rateRows = rates.data ?? []
+  const rateRows = display.rates
   const names = participantNameMap(participants)
 
   const categoryTotals = new Map<string, Decimal>()
@@ -78,14 +73,6 @@ export function TripAnalyticsPage() {
     .sort((a, b) => b.amount.comparedTo(a.amount))
   const personTotal = personRows.reduce((sum, row) => sum.add(row.amount), new Decimal(0))
 
-  const secondaryOptions = otherTripCurrencies(trip.baseCurrency, rateRows)
-  const showSecondary = secondaryCurrency.length > 0
-  const secondaryLabel = (amount: Decimal.Value) => {
-    if (!showSecondary) return null
-    const converted = convertFromBase(amount, trip.baseCurrency, secondaryCurrency, rateRows)
-    return converted ? `≈ ${formatMoney(converted, secondaryCurrency)}` : null
-  }
-
   return (
     <section>
       <div className="mb-[22px] flex flex-wrap items-end justify-between gap-3.5">
@@ -93,14 +80,7 @@ export function TripAnalyticsPage() {
           <h1 className="font-heading text-[26px] font-extrabold">Analytics</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">Where this trip&apos;s money went.</p>
         </div>
-        {secondaryOptions.length > 0 ? (
-          <NativeSelect aria-label="Show a secondary currency" value={secondaryCurrency} onChange={(event) => setSecondaryCurrency(event.target.value)} className="text-[13px]">
-            <NativeSelectOption value="">Show in {trip.baseCurrency} only</NativeSelectOption>
-            {secondaryOptions.map((option) => (
-              <NativeSelectOption key={option.code} value={option.code}>Also show in {option.code}</NativeSelectOption>
-            ))}
-          </NativeSelect>
-        ) : null}
+        <DisplayCurrencySelect display={display} className="text-[13px]" />
       </div>
 
       {excluded > 0 ? (
@@ -109,8 +89,8 @@ export function TripAnalyticsPage() {
 
       <div className="mb-8 max-w-[280px] rounded-[14px] border border-border bg-white p-5">
         <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Total trip spend</p>
-        <p className="font-heading text-[22px] font-extrabold">{formatMoney(categoryTotal, trip.baseCurrency)}</p>
-        {showSecondary ? <p className="mt-1 text-xs text-muted-foreground">{secondaryLabel(categoryTotal)}</p> : null}
+        <p className="font-heading text-[22px] font-extrabold">{display.primary(categoryTotal)}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{display.secondary(categoryTotal)}</p>
       </div>
 
       <h3 className="mb-3.5 font-heading text-[15px] font-extrabold">Cost by category</h3>
@@ -120,7 +100,7 @@ export function TripAnalyticsPage() {
             <BreakdownBar
               key={row.key}
               label={row.label}
-              amountLabel={formatMoney(row.amount, trip.baseCurrency)}
+              amountLabel={display.primary(row.amount)}
               pctLabel={categoryTotal.isZero() ? "0%" : `${Math.round(row.amount.div(categoryTotal).mul(100).toNumber())}%`}
               fraction={categoryTotal.isZero() ? 0 : row.amount.div(categoryTotal).toNumber()}
             />
@@ -145,7 +125,7 @@ export function TripAnalyticsPage() {
                   style={{ width: `${personTotal.isZero() ? 0 : Math.max(3, Math.round(row.amount.div(personTotal).mul(100).toNumber()))}%` }}
                 />
               </div>
-              <span className="w-28 shrink-0 text-right text-[13px] font-bold tabular-nums">{formatMoney(row.amount, trip.baseCurrency)}</span>
+              <span className="w-28 shrink-0 text-right text-[13px] font-bold tabular-nums">{display.primary(row.amount)}</span>
               <span className="w-10 shrink-0 text-right text-xs text-muted-foreground">{personTotal.isZero() ? "0%" : `${Math.round(row.amount.div(personTotal).mul(100).toNumber())}%`}</span>
             </div>
           ))}

@@ -2,19 +2,18 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import type Decimal from "decimal.js"
 import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState } from "@/components/ui/spinner"
 import { listExpenseCategories } from "@/features/expense/category-api"
+import { DisplayCurrencySelect, useDisplayCurrency, type MoneyFormat } from "@/features/finance/display-currency"
 import { MissingRateState } from "@/features/finance/missing-rate-state"
-import { convertFromBase, otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
-import type { Ledger, LedgerEntry, Rate } from "@/features/finance/types"
+import type { Ledger, LedgerEntry } from "@/features/finance/types"
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
-import { formatMoney, safeDecimal } from "@/lib/money"
+import { safeDecimal } from "@/lib/money"
 import { participantName, participantNameMap } from "@/lib/participant-name"
 import { qk } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
@@ -23,10 +22,10 @@ const GRID_COLS = "90px 2fr 130px 130px"
 
 type SignFilter = "all" | "positive" | "negative"
 
-export function balanceLabel(net: string, currency: string) {
+export function balanceLabel(net: string, format: MoneyFormat) {
   const value = safeDecimal(net)
-  if (value.greaterThan("0.5")) return `Owed ${formatMoney(value, currency)}`
-  if (value.lessThan("-0.5")) return `Owes ${formatMoney(value.abs(), currency)}`
+  if (value.greaterThan("0.5")) return `Owed ${format(value)}`
+  if (value.lessThan("-0.5")) return `Owes ${format(value.abs())}`
   return "Settled up"
 }
 
@@ -43,7 +42,7 @@ export function entryTitle(entry: LedgerEntry, names: Map<string, string>) {
   return safeDecimal(entry.delta).isNegative() ? `Settlement from ${counterparty}` : `Settlement to ${counterparty}`
 }
 
-export function entryDetail(entry: LedgerEntry, currency: string, categoryName: (id?: string | null) => string, filtering: boolean, counterpartyName: string) {
+export function entryDetail(entry: LedgerEntry, format: MoneyFormat, categoryName: (id?: string | null) => string, filtering: boolean, counterpartyName: string) {
   if (entry.kind === "settlement") return safeDecimal(entry.delta).isNegative() ? "You received" : "You paid"
   if (filtering) {
     return `${categoryName(entry.categoryId)} · ${safeDecimal(entry.delta).isPositive() ? `${counterpartyName}'s share of this expense` : `Your share, paid by ${counterpartyName}`}`
@@ -51,7 +50,7 @@ export function entryDetail(entry: LedgerEntry, currency: string, categoryName: 
   const paid = safeDecimal(entry.paid)
   const share = safeDecimal(entry.share)
   const summary = paid.greaterThan("0.005") && share.greaterThan("0.005")
-    ? `Paid ${formatMoney(paid, currency)} · share ${formatMoney(share, currency)}`
+    ? `Paid ${format(paid)} · share ${format(share)}`
     : paid.greaterThan("0.005") ? "Paid this expense" : "Your share"
   return `${categoryName(entry.categoryId)} · ${summary}`
 }
@@ -75,17 +74,10 @@ export function LedgerPage() {
     setMemberId(mine?.userId ?? participants[0]?.userId ?? "")
     defaultedMember.current = true
   }, [sessionStatus, session, participants])
-  const [secondaryCurrency, setSecondaryCurrency] = useState("")
   const [sign, setSign] = useState<SignFilter>("all")
+  const display = useDisplayCurrency(trip.code, trip.baseCurrency)
   const categories = useQuery({ queryKey: qk.expenseCategories(trip.code), queryFn: async () => (await listExpenseCategories(trip.code)).data ?? [] })
   const categoryName = (id?: string | null) => categories.data?.find((category) => category.id === id)?.name ?? "Other"
-  const rates = useQuery({ queryKey: qk.rates(trip.code), queryFn: async () => (await apiFetch<Rate[]>(`/api/trips/${trip.code}/exchange-rates`)).data ?? [] })
-  const secondaryOptions = rates.data ? otherTripCurrencies(trip.baseCurrency, rates.data) : []
-  function secondaryLabel(amount: Decimal.Value) {
-    if (!secondaryCurrency || !rates.data) return null
-    const converted = convertFromBase(amount, trip.baseCurrency, secondaryCurrency, rates.data)
-    return converted ? `≈ ${formatMoney(converted, secondaryCurrency)}` : null
-  }
 
   const params = new URLSearchParams({ member_user_id: memberId })
   if (againstId) params.set("against_user_id", againstId)
@@ -114,12 +106,7 @@ export function LedgerPage() {
           <NativeSelectOption value="">Against: everyone</NativeSelectOption>
           {againstOptions.map((participant) => <NativeSelectOption key={participant.userId} value={participant.userId}>Against: {participantName(participant)}</NativeSelectOption>)}
         </NativeSelect>
-        {secondaryOptions.length > 0 ? (
-          <NativeSelect aria-label="Show a secondary currency" value={secondaryCurrency} onChange={(event) => setSecondaryCurrency(event.target.value)} className="col-span-2 md:col-span-1">
-            <NativeSelectOption value="">Show in {trip.baseCurrency} only</NativeSelectOption>
-            {secondaryOptions.map((option) => <NativeSelectOption key={option.code} value={option.code}>Also show in {option.code}</NativeSelectOption>)}
-          </NativeSelect>
-        ) : null}
+        <DisplayCurrencySelect display={display} className="col-span-2 md:col-span-1" />
       </div>
     </div>
 
@@ -133,8 +120,8 @@ export function LedgerPage() {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-2.5 rounded-[14px] border border-border bg-white p-5">
         <p className="text-[13px] font-bold text-muted-foreground">{againstId ? `Balance with ${counterpartyName}` : "Running balance"}</p>
         <div className="text-right">
-          <p className={cn("text-[20px] font-extrabold", balanceColor(query.data.netBalance))}>{balanceLabel(query.data.netBalance, query.data.baseCurrency)}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{secondaryLabel(safeDecimal(query.data.netBalance).abs())}</p>
+          <p className={cn("text-[20px] font-extrabold", balanceColor(query.data.netBalance))}>{balanceLabel(query.data.netBalance, display.primary)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{display.secondary(safeDecimal(query.data.netBalance).abs())}</p>
         </div>
       </div>
       {visibleEntries.length ? (
@@ -149,29 +136,29 @@ export function LedgerPage() {
                 <div className="flex items-start gap-3 px-4 py-4 md:hidden">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-extrabold">{entryTitle(entry, names)}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{entryDetail(entry, query.data!.baseCurrency, categoryName, !!againstId, counterpartyName)}</p>
-                    <p className="mt-2 text-[11px] text-muted-foreground">{entry.date} · Balance {formatMoney(entry.runningBalance, query.data.baseCurrency)}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{entryDetail(entry, display.primary, categoryName, !!againstId, counterpartyName)}</p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">{entry.date} · Balance {display.primary(entry.runningBalance)}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <span className={cn("text-sm font-extrabold tabular-nums", delta.isNegative() ? "text-destructive" : "text-success")}>
-                      {`${delta.isNegative() ? "-" : "+"}${formatMoney(delta.abs(), query.data.baseCurrency)}`}
+                      {`${delta.isNegative() ? "-" : "+"}${display.primary(delta.abs())}`}
                     </span>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{secondaryLabel(delta.abs())}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{display.secondary(delta.abs())}</p>
                   </div>
                 </div>
                 <div className="hidden items-center gap-3 px-5 py-3.5 md:grid" style={{ gridTemplateColumns: GRID_COLS }}>
                   <span className="text-[13px] text-muted-foreground">{entry.date}</span>
                   <div>
                     <p className="text-sm font-semibold">{entryTitle(entry, names)}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{entryDetail(entry, query.data!.baseCurrency, categoryName, !!againstId, counterpartyName)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{entryDetail(entry, display.primary, categoryName, !!againstId, counterpartyName)}</p>
                   </div>
                   <div className="text-right">
                     <span className={cn("text-sm font-bold tabular-nums", delta.isNegative() ? "text-destructive" : "text-success")}>
-                      {`${delta.isNegative() ? "-" : "+"}${formatMoney(delta.abs(), query.data.baseCurrency)}`}
+                      {`${delta.isNegative() ? "-" : "+"}${display.primary(delta.abs())}`}
                     </span>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{secondaryLabel(delta.abs())}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{display.secondary(delta.abs())}</p>
                   </div>
-                  <span className="text-right text-[13px] text-muted-foreground tabular-nums">{formatMoney(entry.runningBalance, query.data.baseCurrency)}</span>
+                  <span className="text-right text-[13px] text-muted-foreground tabular-nums">{display.primary(entry.runningBalance)}</span>
                 </div>
               </div>
             )

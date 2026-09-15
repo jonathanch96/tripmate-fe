@@ -12,8 +12,9 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { DisplayCurrencySelect, useDisplayCurrency } from "@/features/finance/display-currency"
 import { otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
-import type { BalanceResult, Rate, Settlement, Transfer } from "@/features/finance/types"
+import type { BalanceResult, Settlement, Transfer } from "@/features/finance/types"
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
@@ -48,8 +49,8 @@ export function SettlementsPage() {
   const [actionError, setActionError] = useState("")
   const balances = useQuery({ queryKey: qk.balances(trip.code), queryFn: async () => (await apiFetch<BalanceResult>(`/api/trips/${trip.code}/balances`)).data! })
   const history = useQuery({ queryKey: qk.settlements(trip.code), queryFn: async () => (await apiFetch<Settlement[]>(`/api/trips/${trip.code}/settlements?per_page=100`)).data ?? [] })
-  const rates = useQuery({ queryKey: qk.rates(trip.code), queryFn: async () => (await apiFetch<Rate[]>(`/api/trips/${trip.code}/exchange-rates`)).data ?? [] })
-  const currencyOptions = [trip.baseCurrency, ...otherTripCurrencies(trip.baseCurrency, rates.data ?? []).map((row) => row.code)]
+  const display = useDisplayCurrency(trip.code, trip.baseCurrency)
+  const currencyOptions = [trip.baseCurrency, ...otherTripCurrencies(trip.baseCurrency, display.rates).map((row) => row.code)]
   const refresh = async () => Promise.all([client.invalidateQueries({ queryKey: qk.balances(trip.code) }), client.invalidateQueries({ queryKey: qk.settlements(trip.code) }), client.invalidateQueries({ queryKey: qk.finalSettlement(trip.code) })])
   function closeRecordDialog(open: boolean) { setRecordOpen(open); if (!open) { setFormError(""); setEditingRow(null) } }
   const create = useMutation({
@@ -104,13 +105,19 @@ export function SettlementsPage() {
       </Dialog>
     </div>
 
-    <h3 className="mb-3.5 font-heading text-[15px] font-extrabold">Outstanding debts</h3>
+    <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2.5">
+      <h3 className="font-heading text-[15px] font-extrabold">Outstanding debts</h3>
+      <DisplayCurrencySelect display={display} className="text-[13px]" />
+    </div>
     <div className="mb-8">
       {balances.isLoading ? <LoadingState label="Loading debts…" /> : balances.data?.debts.length ? (
         <div className="rounded-[14px] border border-border bg-white px-5">
           {balances.data.debts.map((debt, i) => (
             <div key={i} className="flex flex-wrap items-center justify-between gap-2 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
-              <span className="text-sm">{names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{formatMoney(debt.amount, debt.currency)}</strong></span>
+              <span className="text-sm">
+                {names.get(debt.fromUserId)} owes {names.get(debt.toUserId)} <strong className="text-destructive">{display.primary(debt.amount)}</strong>
+                {display.secondary(debt.amount) ? <span className="ml-1.5 text-xs text-muted-foreground">{display.secondary(debt.amount)}</span> : null}
+              </span>
               <Button size="sm" className="font-bold" disabled={trip.isArchived} onClick={() => prefill(debt)}>Mark as paid</Button>
             </div>
           ))}

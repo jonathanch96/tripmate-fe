@@ -45,11 +45,11 @@ import { generatePassword } from "@/lib/generate-password"
 import { qk } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
 
+// Multiple currencies and settling before the trip ends are always on, so only the two approval
+// gates are still a choice the planner makes.
 const booleanSettings = [
   ["approvalRequiredExpenses", "Require expense approval"],
   ["approvalRequiredSettlements", "Require settlement approval"],
-  ["multiCurrencyEnabled", "Enable multiple currencies"],
-  ["allowSettlementBeforeEnd", "Allow settlement before trip ends"],
 ] as const
 
 function roleLabel(role: Participant["role"]) {
@@ -64,8 +64,8 @@ function settingsPayload(trip: Trip): TripUpdateInput {
     editPermission: trip.settings.editPermission,
     approvalRequiredExpenses: trip.settings.approvalRequiredExpenses,
     approvalRequiredSettlements: trip.settings.approvalRequiredSettlements,
-    multiCurrencyEnabled: trip.settings.multiCurrencyEnabled,
-    allowSettlementBeforeEnd: trip.settings.allowSettlementBeforeEnd,
+    multiCurrencyEnabled: true,
+    allowSettlementBeforeEnd: true,
     version: trip.version,
   })
 }
