@@ -3,6 +3,7 @@
 import { ChevronDownIcon } from "lucide-react"
 import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
+import { useState } from "react"
 
 import { BrandMark } from "@/components/layout/brand-mark"
 import { buttonVariants } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import { ChangePasswordDialog } from "@/features/auth/change-password-dialog"
 
 export function SiteHeader() {
   const { data: session, status } = useSession()
+  const [passwordOpen, setPasswordOpen] = useState(false)
 
   return (
     <header className="sticky top-0 z-50 hidden border-b bg-white/90 backdrop-blur md:block">
@@ -32,11 +34,14 @@ export function SiteHeader() {
                   <ChevronDownIcon className="size-3.5" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <ChangePasswordDialog />
+                  <DropdownMenuItem onClick={() => setPasswordOpen(true)}>Change password</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>Sign out</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {/* Outside the menu on purpose: choosing an item closes the menu, which unmounts
+                  its content — a dialog rendered in there is torn down as it opens. */}
+              <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
             </>
           ) : (
             <Link href="/login" className={buttonVariants({ size: "sm" })}>Sign in</Link>
