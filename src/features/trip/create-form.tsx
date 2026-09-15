@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { CurrencyRateDraftList } from "@/features/finance/currency-rate-draft";
+import { CurrencyRateDraftList, EMPTY_PENDING_RATE, pendingRateDraft, type PendingRate } from "@/features/finance/currency-rate-draft";
 import type { RateDraft } from "@/features/finance/rate-pair-helpers";
 import { tripSchema, type TripInput } from "@/features/trip/schema";
 import type { Trip } from "@/features/trip/types";
@@ -21,6 +21,7 @@ import { SUPPORTED_CURRENCIES } from "@/lib/currencies";
 export function CreateTripForm() {
   const router = useRouter();
   const [drafts, setDrafts] = useState<RateDraft[]>([]);
+  const [pending, setPending] = useState<PendingRate>(EMPTY_PENDING_RATE);
   const form = useForm<TripInput>({
     resolver: zodResolver(tripSchema),
     defaultValues: {
@@ -46,9 +47,14 @@ export function CreateTripForm() {
   // afterwards would silently reinterpret it — drop the drafts instead of keeping a wrong rate.
   function baseCurrencyChanged() {
     if (drafts.length) setDrafts([]);
+    setPending(EMPTY_PENDING_RATE);
   }
 
   async function submit(value: TripInput) {
+    // A rate typed into the last row counts even if "Add another" was never pressed — that button
+    // is for adding a second currency, not a step you have to remember before saving.
+    const readyPending = pendingRateDraft(pending, value.baseCurrency, drafts);
+    const rates = readyPending ? [...drafts, readyPending] : drafts;
     try {
       const result = await apiFetch<Trip>("/api/trips", {
         method: "POST",
@@ -61,7 +67,7 @@ export function CreateTripForm() {
       // A rate that fails must not swallow the trip that was created — say which ones missed and
       // land the planner on the settings page where they can be re-entered.
       const failed: string[] = [];
-      for (const draft of drafts) {
+      for (const draft of rates) {
         try {
           await apiFetch(`/api/trips/${trip.code}/exchange-rates`, {
             method: "PUT",
@@ -134,7 +140,7 @@ export function CreateTripForm() {
         <p className="text-xs text-muted-foreground">
           Add the currencies you&apos;ll actually be spending in and what they are worth in {baseCurrency}. You can add, change or remove these later under Settings → Currencies &amp; exchange rates.
         </p>
-        <CurrencyRateDraftList baseCurrency={baseCurrency} drafts={drafts} onChange={setDrafts} />
+        <CurrencyRateDraftList baseCurrency={baseCurrency} drafts={drafts} pending={pending} onDrafts={setDrafts} onPending={setPending} />
       </div>
       <div className="space-y-3 rounded-lg border p-4">
         {toggles.map(([name, label]) => (
