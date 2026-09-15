@@ -9,15 +9,23 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { changePasswordSchema, type ChangePasswordInput } from "@/features/auth/schema"
 import { apiFetch } from "@/lib/api-client"
 import { ApiError } from "@/lib/envelope"
 
-export function ChangePasswordDialog({ trigger }: { trigger?: ReactElement } = {}) {
-  const [open, setOpen] = useState(false)
+// The dialog can drive itself from its own trigger, or be opened by a caller that has nowhere
+// safe to put one — a dropdown item, say, whose menu unmounts the moment it is chosen and would
+// take a dialog rendered inside it down with it.
+export function ChangePasswordDialog({ trigger, open: controlledOpen, onOpenChange }: {
+  trigger?: ReactElement
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+} = {}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen ?? internalOpen
+  const setOpen = onOpenChange ?? setInternalOpen
   const form = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
@@ -46,7 +54,9 @@ export function ChangePasswordDialog({ trigger }: { trigger?: ReactElement } = {
 
   return (
     <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) form.reset() }}>
-      <DialogTrigger render={trigger ?? <DropdownMenuItem>Change password</DropdownMenuItem>} />
+      {controlledOpen === undefined ? (
+        <DialogTrigger render={trigger ?? <Button variant="outline" size="sm">Change password</Button>} />
+      ) : null}
       <DialogContent className="rounded-[20px] sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="font-heading text-[19px] font-extrabold">Change password</DialogTitle>
