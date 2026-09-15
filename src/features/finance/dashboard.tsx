@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Decimal from "decimal.js"
 import { PlusIcon } from "lucide-react"
@@ -8,15 +7,14 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { LoadingState } from "@/components/ui/spinner"
 import { ExpenseDialog } from "@/features/expense/components/expense-dialog"
 import { listExpenseCategories } from "@/features/expense/category-api"
 import { submitExpense } from "@/features/expense/submit-expense"
 import type { Expense, ExpensePayload } from "@/features/expense/types"
+import { DisplayCurrencySelect, useDisplayCurrency } from "@/features/finance/display-currency"
 import { MissingRateState } from "@/features/finance/missing-rate-state"
-import { convertFromBase, otherTripCurrencies } from "@/features/finance/rate-pair-helpers"
-import type { BalanceResult, Rate } from "@/features/finance/types"
+import type { BalanceResult } from "@/features/finance/types"
 import { useTrip } from "@/features/trip/trip-context"
 import { apiFetch } from "@/lib/api-client"
 import { categoryColorFor } from "@/lib/category-colors"
@@ -41,7 +39,7 @@ export function Dashboard() {
   const { trip, participants } = useTrip()
   const { data: session } = useSession()
   const queryClient = useQueryClient()
-  const [secondaryCurrency, setSecondaryCurrency] = useState("")
+  const display = useDisplayCurrency(trip.code, trip.baseCurrency)
 
   const query = useQuery({ queryKey: qk.balances(trip.code), queryFn: async () => (await apiFetch<BalanceResult>(`/api/trips/${trip.code}/balances`)).data! })
   const activity = useQuery({
@@ -49,7 +47,6 @@ export function Dashboard() {
     queryFn: async () => (await apiFetch<Expense[]>(`/api/trips/${trip.code}/expenses?sort=created_desc&per_page=4`)).data ?? [],
   })
   const categories = useQuery({ queryKey: qk.expenseCategories(trip.code), queryFn: async () => (await listExpenseCategories(trip.code)).data ?? [] })
-  const rates = useQuery({ queryKey: qk.rates(trip.code), queryFn: async () => (await apiFetch<Rate[]>(`/api/trips/${trip.code}/exchange-rates`)).data ?? [] })
 
   async function refresh() {
     await Promise.all([
@@ -75,13 +72,6 @@ export function Dashboard() {
   const pending = result.summary.pendingExpenseCount + result.summary.pendingSettlementCount
   const maxBalance = Math.max(1, ...result.balances.map((row) => Math.abs(new Decimal(row.netBalance).toNumber())))
 
-  const secondaryOptions = rates.data ? otherTripCurrencies(trip.baseCurrency, rates.data) : []
-  const showSecondary = secondaryCurrency.length > 0
-  const secondaryLabel = (amount: Decimal.Value) => {
-    if (!showSecondary || !rates.data) return null
-    const converted = convertFromBase(amount, trip.baseCurrency, secondaryCurrency, rates.data)
-    return converted ? `≈ ${formatMoney(converted.abs(), secondaryCurrency)}` : null
-  }
   const categoryName = (id: string | null) => categories.data?.find((category) => category.id === id)?.name ?? "Other"
   const names = participantNameMap(participants)
   const nameFor = (userId: string, fallback?: string | null) => names.get(userId) ?? fallback ?? "Participant"
@@ -94,19 +84,7 @@ export function Dashboard() {
           <p className="mt-1.5 hidden text-sm text-muted-foreground md:block">How things stand right now.</p>
         </div>
         <div className="flex items-center gap-2.5">
-          {secondaryOptions.length > 0 ? (
-            <NativeSelect
-              aria-label="Show a secondary currency"
-              value={secondaryCurrency}
-              onChange={(event) => setSecondaryCurrency(event.target.value)}
-              className="text-[13px]"
-            >
-              <NativeSelectOption value="">Show in {trip.baseCurrency} only</NativeSelectOption>
-              {secondaryOptions.map((option) => (
-                <NativeSelectOption key={option.code} value={option.code}>Also show in {option.code}</NativeSelectOption>
-              ))}
-            </NativeSelect>
-          ) : null}
+          <DisplayCurrencySelect display={display} className="text-[13px]" />
           <ExpenseDialog
             trip={trip}
             participants={participants}
@@ -136,10 +114,10 @@ export function Dashboard() {
         <div className="col-span-2 rounded-[18px] bg-[oklch(0.24_0.045_255)] p-5 text-white md:col-span-1 md:rounded-[14px] md:border md:border-border md:bg-white md:text-foreground">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-white/55 uppercase md:text-muted-foreground">Your balance</p>
           <p className={cn("font-heading text-[28px] font-extrabold md:text-[22px]", mineValue == null ? "" : mineOwed ? "text-[oklch(0.75_0.15_150)] md:text-success" : "text-[oklch(0.75_0.13_25)] md:text-destructive")}>
-            {mineValue == null ? "—" : mineValue.abs().lessThan("0.5") ? "Settled up" : `${mineOwed ? "+" : "-"}${formatMoney(mineValue.abs(), result.baseCurrency)}`}
+            {mineValue == null ? "—" : mineValue.abs().lessThan("0.5") ? "Settled up" : `${mineOwed ? "+" : "-"}${display.primary(mineValue.abs())}`}
           </p>
           {mineValue != null && mineValue.abs().greaterThanOrEqualTo("0.5") ? (
-            <p className="mt-1 text-xs text-white/55 md:text-muted-foreground">{secondaryLabel(mineValue.abs())}</p>
+            <p className="mt-1 text-xs text-white/55 md:text-muted-foreground">{display.secondary(mineValue.abs())}</p>
           ) : null}
           <div className="mt-5 grid grid-cols-2 gap-2 md:hidden">
             <Link href={`/trip/${trip.code}/settlements`} className="flex h-11 items-center justify-center rounded-[12px] bg-primary text-xs font-extrabold text-primary-foreground">Settle up</Link>
@@ -148,8 +126,8 @@ export function Dashboard() {
         </div>
         <div className="rounded-[16px] border border-border bg-white p-4 md:rounded-[14px] md:p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Total trip spend</p>
-          <p className="font-heading text-[22px] font-extrabold">{formatMoney(result.summary.totalExpenses, result.baseCurrency)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{secondaryLabel(result.summary.totalExpenses)}</p>
+          <p className="font-heading text-[22px] font-extrabold">{display.primary(result.summary.totalExpenses)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{display.secondary(result.summary.totalExpenses)}</p>
         </div>
         <div className="rounded-[16px] border border-border bg-white p-4 md:rounded-[14px] md:p-5">
           <p className="mb-2.5 text-xs font-bold tracking-wide text-muted-foreground uppercase">Members</p>
@@ -169,9 +147,9 @@ export function Dashboard() {
               <BalanceBar fraction={Math.abs(value.toNumber()) / maxBalance} owed={owed} />
               <div className="w-[112px] shrink-0 text-right md:w-[170px]">
                 <span className={cn("text-[13px] font-bold", settled ? "text-muted-foreground" : owed ? "text-success" : "text-destructive")}>
-                  {settled ? "settled up" : `${owed ? "is owed " : "owes "}${formatMoney(value.abs(), result.baseCurrency)}`}
+                  {settled ? "settled up" : `${owed ? "is owed " : "owes "}${display.primary(value.abs())}`}
                 </span>
-                {!settled ? <p className="mt-0.5 text-[11px] text-muted-foreground">{secondaryLabel(value.abs())}</p> : null}
+                {!settled ? <p className="mt-0.5 text-[11px] text-muted-foreground">{display.secondary(value.abs())}</p> : null}
               </div>
             </div>
           )
@@ -184,8 +162,8 @@ export function Dashboard() {
                 <div key={index} className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-semibold">{nameFor(debt.fromUserId)} → {nameFor(debt.toUserId)}</span>
                   <div className="text-right">
-                    <span className="text-sm font-bold tabular-nums">{formatMoney(debt.amount, debt.currency)}</span>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">{secondaryLabel(debt.amount)}</p>
+                    <span className="text-sm font-bold tabular-nums">{display.primary(debt.amount)}</span>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{display.secondary(debt.amount)}</p>
                   </div>
                 </div>
               ))}
@@ -203,7 +181,7 @@ export function Dashboard() {
       {activity.isLoading ? <LoadingState label="Loading recent activity…" /> : activity.data?.length ? (
         <div className="rounded-[14px] border border-border bg-white px-5">
           {activity.data.map((expense) => {
-            const secondary = expense.currency === trip.baseCurrency ? secondaryLabel(expense.amount) : null
+            const inBase = expense.currency === trip.baseCurrency
             const payersLabel = expense.payers.map((payer) => nameFor(payer.userId, payer.user?.name).split(" ")[0]).filter(Boolean).join(" & ")
             return (
               <div key={expense.id} className="flex items-center justify-between gap-3 border-b border-[oklch(0.95_0.006_60)] py-3.5 last:border-0">
@@ -219,8 +197,8 @@ export function Dashboard() {
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-sm font-bold tabular-nums">{formatMoney(expense.amount, expense.currency)}</p>
-                  {secondary ? <p className="text-[11px] text-muted-foreground">{secondary}</p> : null}
+                  <p className="text-sm font-bold tabular-nums">{inBase ? display.primary(expense.amount) : formatMoney(expense.amount, expense.currency)}</p>
+                  {inBase ? <p className="text-[11px] text-muted-foreground">{display.secondary(expense.amount)}</p> : null}
                 </div>
               </div>
             )

@@ -13,6 +13,11 @@ const settingsFields = {
   allowSettlementBeforeEnd: z.boolean(),
 }
 
+const endsOnOrAfterStart = {
+  path: ["endDate"],
+  message: "End date must be on or after start date",
+}
+
 export const tripSchema = z
   .object({
     ...settingsFields,
@@ -20,12 +25,19 @@ export const tripSchema = z
     endDate: z.string().min(1),
   })
   .strict()
-  .refine((value) => value.endDate >= value.startDate, {
-    path: ["endDate"],
-    message: "End date must be on or after start date",
-  })
+  .refine((value) => value.endDate >= value.startDate, endsOnOrAfterStart)
 
-export const tripUpdateSchema = z.object({ ...settingsFields, version: z.number().int().positive() }).strict()
+// The trip's dates are optional on an update so a client editing only its settings can leave them
+// out; sending them moves the trip's window.
+export const tripUpdateSchema = z
+  .object({
+    ...settingsFields,
+    startDate: z.string().min(1).optional(),
+    endDate: z.string().min(1).optional(),
+    version: z.number().int().positive(),
+  })
+  .strict()
+  .refine((value) => !value.startDate || !value.endDate || value.endDate >= value.startDate, endsOnOrAfterStart)
 
 export const participantAddSchema = z.object({ userId: z.uuid() }).strict()
 

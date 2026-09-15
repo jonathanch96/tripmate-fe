@@ -28,8 +28,9 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 describe("ExpenseDialog", () => {
-  afterEach(cleanup)
+  afterEach(() => { cleanup(); vi.useRealTimers(); window.localStorage.clear() })
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     apiFetch.mockReset()
     apiFetch.mockImplementation((path: string) => {
       if (path.includes("exchange-rates")) return Promise.resolve({ success: true, data: [{ id: "r1", from: "THB", to: "IDR", rate: "450", isFinal: false }] })
@@ -50,6 +51,37 @@ describe("ExpenseDialog", () => {
     fireEvent.change(screen.getByLabelText(/shares for elisabeth/i), { target: { value: "2" } })
     await waitFor(() => expect(screen.getByText("1,071,428.57")).toBeTruthy())
     expect(screen.getByText("428,571.43")).toBeTruthy()
+  })
+
+  it("dates a brand-new expense today, pulled back inside a trip that has already ended", () => {
+    vi.setSystemTime(new Date("2026-08-05T10:00:00"))
+    render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    expect(screen.getByLabelText("Date")).toHaveProperty("value", "2026-08-05")
+
+    cleanup()
+    vi.setSystemTime(new Date("2027-01-05T10:00:00"))
+    render(<ExpenseDialog trip={trip} participants={participants} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    expect(screen.getByLabelText("Date")).toHaveProperty("value", trip.endDate)
+  })
+
+  it("remembers the date an expense was filed for and opens the next one on it", () => {
+    vi.setSystemTime(new Date("2026-08-05T10:00:00"))
+    const onSubmit = vi.fn()
+    // Saving is only reachable with real user ids: the payload schema requires UUIDs.
+    const payable = participants.map((participant, index) => ({
+      ...participant,
+      userId: index === 0 ? "11111111-1111-4111-8111-111111111111" : "22222222-2222-4222-8222-222222222222",
+    }))
+    render(<ExpenseDialog trip={trip} participants={payable} pending={false} open onOpenChange={() => {}} onSubmit={onSubmit} />, { wrapper: Wrapper })
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Group dinner" } })
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-08-02" } })
+    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "1200" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save expense" }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ expenseDate: "2026-08-02" }))
+
+    cleanup()
+    render(<ExpenseDialog trip={trip} participants={payable} pending={false} open onOpenChange={() => {}} onSubmit={() => {}} />, { wrapper: Wrapper })
+    expect(screen.getByLabelText("Date")).toHaveProperty("value", "2026-08-02")
   })
 
   it("defaults a new expense to the trip's other saved currency instead of its base currency", async () => {

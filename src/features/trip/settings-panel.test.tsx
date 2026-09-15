@@ -102,6 +102,8 @@ describe("SettingsPanel", () => {
     expect(JSON.parse(String(init.body))).toEqual({
       name: "Review Trip",
       baseCurrency: "USD",
+      startDate: "2026-08-20",
+      endDate: "2026-08-25",
       editPermission: "everyone",
       approvalRequiredExpenses: true,
       approvalRequiredSettlements: true,
@@ -109,6 +111,27 @@ describe("SettingsPanel", () => {
       allowSettlementBeforeEnd: true,
       version: 1,
     })
+  })
+
+  it("saves a new trip window from the details section", async () => {
+    render(<SettingsPanel />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole("button", { name: /Trip details/ }))
+    fireEvent.change(screen.getByLabelText("End"), { target: { value: "2026-08-30" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save dates" }))
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1))
+    const init = apiFetch.mock.calls[0][1] as RequestInit
+    expect(JSON.parse(String(init.body))).toMatchObject({ startDate: "2026-08-20", endDate: "2026-08-30" })
+  })
+
+  it("refuses to save a trip window that ends before it starts", () => {
+    render(<SettingsPanel />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole("button", { name: /Trip details/ }))
+    fireEvent.change(screen.getByLabelText("End"), { target: { value: "2026-08-19" } })
+
+    expect(screen.getByRole("alert").textContent).toContain("on or after start date")
+    expect((screen.getByRole("button", { name: "Save dates" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(apiFetch).not.toHaveBeenCalledWith("/api/trips/ABC123", expect.objectContaining({ method: "PATCH" }))
   })
 
   it("never seeds an editable account field with a masked account number", () => {

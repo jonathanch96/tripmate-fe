@@ -95,14 +95,15 @@ test("money flows from an expense through settlement approval into a finalized t
   const planner = await register(plannerContext, plannerEmail, "MoneyPlanner");
   const member = await register(memberContext, memberEmail, "MoneyMember");
 
-  // Trip defaults matter here: expenses need no approval, settlements do, and early settlement is
-  // allowed — which is exactly the path this test walks.
+  // Every approval now starts off, so settlement approval — the gate this test walks through — is
+  // switched on here at creation time. Early settlement is always allowed.
   await visit(planner, plannerEmail, "/trip/create");
   await planner.request.get("/api/trips").catch(() => undefined);
   await planner.getByLabel("Trip name").fill("Money Flow Trip");
-  await planner.getByLabel("Base currency").fill("USD");
+  await planner.getByLabel("Base currency").selectOption("USD");
   await planner.getByLabel("Start").fill("2026-08-24");
   await planner.getByLabel("End").fill("2026-08-28");
+  await planner.getByRole("checkbox", { name: "Require settlement approval" }).click();
   await rotateSession(planner);
   await planner.getByRole("button", { name: "Create trip" }).click();
   await expect(planner).toHaveURL(/\/trip\/[A-Za-z0-9]{6}\/settings/, { timeout: 30_000 });
