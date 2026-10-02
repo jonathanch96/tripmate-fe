@@ -95,7 +95,7 @@ export function Dashboard() {
               <button
                 type="button"
                 disabled={trip.isArchived}
-                className="fixed right-5 bottom-[84px] z-40 flex h-14 items-center gap-2 rounded-[18px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] disabled:hidden md:static md:h-9 md:rounded-md md:px-4 md:shadow-none"
+                className="mobile-fab fixed right-5 z-40 flex h-14 items-center gap-2 rounded-[18px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] disabled:hidden md:static md:h-9 md:rounded-md md:px-4 md:shadow-none"
               >
                 <PlusIcon className="size-5" /> Add expense
               </button>

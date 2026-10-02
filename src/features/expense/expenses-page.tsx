@@ -55,7 +55,7 @@ export function ExpensesPage() {
         onSubmit={(payload) => create.mutate(payload)}
         onReceiptConverted={refresh}
         trigger={
-          <Button disabled={trip.isArchived} className="fixed right-5 bottom-[84px] z-40 h-14 rounded-[18px] px-5 font-extrabold shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] md:static md:h-9 md:rounded-md md:px-4 md:shadow-none">
+          <Button disabled={trip.isArchived} className="mobile-fab fixed right-5 z-40 h-14 rounded-[18px] px-5 font-extrabold shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] md:static md:h-9 md:rounded-md md:px-4 md:shadow-none">
             <PlusIcon className="size-5" /> Add expense
           </Button>
         }

@@ -223,7 +223,7 @@ export default function TripsPage() {
       )}
       <Link
         href="/trip/create"
-        className="fixed right-5 bottom-[84px] z-40 flex h-14 items-center gap-2 rounded-[18px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] md:hidden"
+        className="mobile-fab fixed right-5 z-40 flex h-14 items-center gap-2 rounded-[18px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] md:hidden"
       >
         <PlusIcon className="size-5" /> New trip
       </Link>
