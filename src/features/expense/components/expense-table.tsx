@@ -65,7 +65,7 @@ export function ExpenseTable({ trip, expenses, categories, participants, pending
                 <span className="flex items-start justify-between gap-3">
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-extrabold">{expense.description}</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">Paid by {expense.payers.map((payer) => names.get(payer.userId) ?? payer.user?.name ?? payer.userId.slice(0, 8)).join(", ")}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">Paid by {expense.payers.map((payer) => names.get(payer.userId) ?? payer.user?.name ?? payer.userId.slice(0, 8)).join(", ")}{expense.createdVia ? ` · via ${expense.createdVia}` : ""}</span>
                   </span>
                   <span className="shrink-0 text-right text-sm font-extrabold tabular-nums">
                     {formatMoney(expense.amount, expense.currency)}
@@ -111,7 +111,7 @@ export function ExpenseTable({ trip, expenses, categories, participants, pending
             <TableCell className="py-4 pl-5 text-[13px] whitespace-nowrap text-muted-foreground">{expense.expenseDate}</TableCell>
             <TableCell className="py-4">
               <div className="text-sm font-semibold">{expense.description}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">Paid by {expense.payers.map((payer) => names.get(payer.userId) ?? payer.user?.name ?? payer.userId.slice(0, 8)).join(", ")}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">Paid by {expense.payers.map((payer) => names.get(payer.userId) ?? payer.user?.name ?? payer.userId.slice(0, 8)).join(", ")}{expense.createdVia ? ` · via ${expense.createdVia}` : ""}</div>
             </TableCell>
             <TableCell className="py-4">{categoryName ? <span className={cn("inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-bold", categoryColorFor(categoryName))}>{categoryName}</span> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
             <TableCell className="py-4 text-[13px] text-muted-foreground">{SPLIT_LABEL[expense.splitType]}</TableCell>

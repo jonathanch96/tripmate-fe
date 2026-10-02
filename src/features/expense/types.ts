@@ -33,7 +33,9 @@ export type Expense = {
   chargedCurrency: string | null
   splitType: "equal" | "manual" | "item" | "percent" | "shares"
   status: "pending" | "approved" | "rejected"
-  source: "manual" | "receipt"
+  source: "manual" | "receipt" | "assistant"
+  // The AI assistant (e.g. "Claude") that created an assistant-sourced expense.
+  createdVia?: string | null
   note: string | null
   payers: Array<MoneyRow & { user?: { id: string; name: string; email: string } }>
   splits: Array<MoneyRow & { user?: { id: string; name: string; email: string } }>

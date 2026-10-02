@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { LoadingState } from "@/components/ui/spinner"
 import { ChangePasswordDialog } from "@/features/auth/change-password-dialog"
 import { profileQuery, type Profile } from "@/features/auth/profile"
+import { ConnectedApps } from "@/features/oauth/connected-apps"
 import { apiFetch } from "@/lib/api-client"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { apiErrorMessage } from "@/lib/envelope"
@@ -93,6 +94,8 @@ export default function AccountPage() {
           ) : null}
         </div>
       </div>
+
+      <ConnectedApps />
 
       <h2 className="mb-3 font-heading text-[15px] font-extrabold">Preferences</h2>
       <div className="mb-6 overflow-hidden rounded-[16px] border border-border bg-white">
