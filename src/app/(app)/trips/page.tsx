@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { AiPromoBanner } from "@/features/ai/ai-promo-banner"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import type { Invitation, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
@@ -87,6 +88,8 @@ export default function TripsPage() {
           <Link href="/trip/create" className={buttonVariants({ className: "font-bold" })}>+ Create trip</Link>
         </div>
       </div>
+
+      <AiPromoBanner />
 
       <div className="mb-5 grid grid-cols-2 rounded-[12px] bg-muted p-1 md:flex md:flex-wrap md:bg-transparent md:p-0">
         <button

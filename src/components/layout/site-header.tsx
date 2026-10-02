@@ -44,7 +44,10 @@ export function SiteHeader() {
               <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
             </>
           ) : (
-            <Link href="/login" className={buttonVariants({ size: "sm" })}>Sign in</Link>
+            <>
+              <Link href="/ai" className={buttonVariants({ variant: "ghost", size: "sm" })}>AI assistants</Link>
+              <Link href="/login" className={buttonVariants({ size: "sm" })}>Sign in</Link>
+            </>
           )}
         </nav>
       </div>
