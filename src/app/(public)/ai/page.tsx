@@ -52,10 +52,10 @@ const clients = [
   {
     name: "ChatGPT",
     steps: [
-      "Open Settings → Apps & Connectors. On some plans you first turn on Developer mode under Advanced.",
-      "Create a new connector, name it TripMate, and paste the server URL. Authentication is OAuth.",
-      "Sign in to TripMate when asked and press Allow.",
-      "Pick TripMate in a new chat and ask away.",
+      "In ChatGPT, open Plugins from the sidebar and click the + button next to Search plugins.",
+      "Choose Create custom MCP server, then Create MCP App in the New Plugin window.",
+      "Name it TripMate, keep Server URL selected and paste the server URL. Set Authentication to OAuth, tick “I understand and want to continue”, and click Create.",
+      "Sign in to TripMate when asked and press Allow. Then pick TripMate in a new chat and ask away.",
     ],
   },
   {

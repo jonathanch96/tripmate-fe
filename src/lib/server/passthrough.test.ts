@@ -37,6 +37,31 @@ describe("passthrough", () => {
     expect(response.headers.get("Content-Length")).toBeNull()
   })
 
+  it("forwards every MCP transport header the 2026-07-28 protocol requires", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+    const request = new NextRequest("https://trip.example/mcp", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer tmat_x",
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/call",
+        "Mcp-Name": "list_trips",
+        "Mcp-Param-Trip-Code": "BALI26",
+        "X-Unrelated": "drop me",
+      },
+      body: "{}",
+    })
+
+    await passthrough(request, "/mcp")
+
+    const headers = fetchMock.mock.calls[0][1].headers as Headers
+    expect(headers.get("mcp-method")).toBe("tools/call")
+    expect(headers.get("mcp-name")).toBe("list_trips")
+    expect(headers.get("mcp-param-trip-code")).toBe("BALI26")
+    expect(headers.get("x-unrelated")).toBeNull()
+  })
+
   it("keeps the query string and hands redirects back to the browser", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 302, headers: { Location: "https://trip.example/oauth/consent?request_id=r1" } }))
     vi.stubGlobal("fetch", fetchMock)
