@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { connectedAppsQuery, disconnectApp, type ConnectedApp } from "@/features/oauth/api"
 import { McpUrlField } from "@/features/oauth/mcp-url-field"
-import { accessLabel } from "@/features/oauth/scopes"
+import { accessLabel, SCOPE_WRITE } from "@/features/oauth/scopes"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { apiErrorMessage } from "@/lib/envelope"
 import { qk } from "@/lib/query-keys"
@@ -34,6 +34,11 @@ function AppRow({ app }: { app: ConnectedApp }) {
         <p className="mt-0.5 text-xs text-muted-foreground">
           {accessLabel(app.scopes)} · used {formatDistanceToNow(new Date(app.lastUsedAt), { addSuffix: true })}
         </p>
+        {app.scopes.includes(SCOPE_WRITE) ? null : (
+          <p className="mt-1 text-xs text-muted-foreground">
+            It can&apos;t add expenses. To allow that, disconnect TripMate in {app.client.name} and connect again, keeping &ldquo;Create and edit&rdquo; ticked.
+          </p>
+        )}
       </div>
       <AlertDialog>
         <AlertDialogTrigger render={<Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={disconnect.isPending} />}>

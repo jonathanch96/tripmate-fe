@@ -55,6 +55,25 @@ describe("ConsentCard", () => {
     expect(JSON.parse(approve![1].body)).toEqual({ scopes: ["tripmate.read"] })
   })
 
+  it("offers create and edit even when the app only asked to view", async () => {
+    apiFetch.mockImplementation((path: string) =>
+      path === "/api/oauth/requests/r1"
+        ? Promise.resolve({ success: true, data: { ...request, scopes: ["tripmate.read"] } })
+        : Promise.resolve({ success: true, data: { redirectUrl: "https://claude.ai/api/mcp/auth_callback?code=c" } }),
+    )
+    render(<ConsentCard requestId="r1" />, { wrapper: Wrapper })
+
+    expect(await screen.findByText(/only asked to view/)).toBeTruthy()
+    const checkbox = screen.getByLabelText("Allow creating and editing")
+    expect(checkbox.getAttribute("aria-checked")).toBe("false")
+    fireEvent.click(checkbox)
+    fireEvent.click(screen.getByRole("button", { name: "Allow" }))
+
+    await waitFor(() => expect(assign).toHaveBeenCalled())
+    const approve = apiFetch.mock.calls.find(([path]) => path === "/api/oauth/requests/r1/approve")
+    expect(JSON.parse(approve![1].body)).toEqual({ scopes: ["tripmate.read", "tripmate.write"] })
+  })
+
   it("sends the user back with a denial", async () => {
     apiFetch.mockImplementation((path: string) =>
       path === "/api/oauth/requests/r1"

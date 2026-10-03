@@ -61,7 +61,9 @@ function AppMark({ request }: { request: AuthorizationRequest }) {
 export function ConsentCard({ requestId, entryError }: { requestId?: string; entryError?: string }) {
   const { data: session } = useSession()
   const request = useQuery({ ...authorizationRequestQuery(requestId ?? ""), enabled: Boolean(requestId) && !entryError })
-  const [allowWrite, setAllowWrite] = useState(true)
+  // null until the user touches the checkbox: it then starts from what the app asked for.
+  const [writeChoice, setWriteChoice] = useState<boolean | null>(null)
+  const allowWrite = writeChoice ?? Boolean(request.data?.scopes.includes(SCOPE_WRITE))
   const [leaving, setLeaving] = useState(false)
 
   const answer = useMutation({
@@ -69,7 +71,7 @@ export function ConsentCard({ requestId, entryError }: { requestId?: string; ent
       if (!requestId) throw new Error("missing request")
       if (!approve) return denyRequest(requestId)
       const scopes: OAuthScope[] = [SCOPE_READ]
-      if (allowWrite && request.data?.scopes.includes(SCOPE_WRITE)) scopes.push(SCOPE_WRITE)
+      if (allowWrite) scopes.push(SCOPE_WRITE)
       return approveRequest(requestId, scopes)
     },
     onSuccess: (redirectUrl) => {
@@ -111,17 +113,21 @@ export function ConsentCard({ requestId, entryError }: { requestId?: string; ent
             <p className="mt-0.5 text-xs text-muted-foreground">{SCOPE_COPY[SCOPE_READ].detail}</p>
           </div>
         </li>
-        {wantsWrite ? (
-          <li className="border-b border-border last:border-0">
-            <label className="flex cursor-pointer gap-3 px-4 py-3">
-              <Checkbox checked={allowWrite} onCheckedChange={(checked) => setAllowWrite(checked === true)} className="mt-0.5" aria-label="Allow creating and editing" />
-              <span>
-                <span className="block text-sm font-bold">{SCOPE_COPY[SCOPE_WRITE].title}</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">{SCOPE_COPY[SCOPE_WRITE].detail}</span>
-              </span>
-            </label>
-          </li>
-        ) : null}
+        {/* Always offered: an app that only asked to view can still be allowed to add expenses. */}
+        <li className="border-b border-border last:border-0">
+          <label className="flex cursor-pointer gap-3 px-4 py-3">
+            <Checkbox checked={allowWrite} onCheckedChange={(checked) => setWriteChoice(checked === true)} className="mt-0.5" aria-label="Allow creating and editing" />
+            <span>
+              <span className="block text-sm font-bold">{SCOPE_COPY[SCOPE_WRITE].title}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">{SCOPE_COPY[SCOPE_WRITE].detail}</span>
+              {wantsWrite ? null : (
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {data.client.name} only asked to view. Tick this if you want it to add expenses and repayments for you.
+                </span>
+              )}
+            </span>
+          </label>
+        </li>
       </ul>
       <p className="mt-3 flex gap-2 text-xs text-muted-foreground">
         <ShieldCheckIcon className="size-4 shrink-0" />
