@@ -13,7 +13,7 @@ export type BackendResult<T> = {
   status: number
 }
 
-function backendBaseUrl(): string {
+export function backendBaseUrl(): string {
   const value = process.env.BACKEND_BASE_URL
   if (!value) {
     throw new Error("BACKEND_BASE_URL is required")

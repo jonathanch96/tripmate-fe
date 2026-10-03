@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <>
       <SiteHeader />
-      <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 pt-6 pb-24 md:px-10 md:py-11">
+      <main className="mobile-page-bottom mx-auto w-full max-w-[1180px] flex-1 px-4 pt-6 md:px-10 md:py-11">
         {children}
       </main>
       <MobileAppNav />

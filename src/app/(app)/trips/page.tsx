@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { AiPromoBanner } from "@/features/ai/ai-promo-banner"
 import { LoadingState, Spinner } from "@/components/ui/spinner"
 import type { Invitation, Trip } from "@/features/trip/types"
 import { apiFetch } from "@/lib/api-client"
@@ -87,6 +88,8 @@ export default function TripsPage() {
           <Link href="/trip/create" className={buttonVariants({ className: "font-bold" })}>+ Create trip</Link>
         </div>
       </div>
+
+      <AiPromoBanner />
 
       <div className="mb-5 grid grid-cols-2 rounded-[12px] bg-muted p-1 md:flex md:flex-wrap md:bg-transparent md:p-0">
         <button
@@ -220,7 +223,7 @@ export default function TripsPage() {
       )}
       <Link
         href="/trip/create"
-        className="fixed right-5 bottom-[84px] z-40 flex h-14 items-center gap-2 rounded-[18px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] md:hidden"
+        className="mobile-fab fixed right-5 z-40 flex h-14 items-center gap-2 rounded-[18px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-[0_10px_30px_oklch(0.35_0.12_250_/_0.28)] md:hidden"
       >
         <PlusIcon className="size-5" /> New trip
       </Link>

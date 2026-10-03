@@ -1,8 +1,10 @@
+import { ArrowRightIcon, SparklesIcon } from "lucide-react"
 import Link from "next/link"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SiteHeader } from "@/components/layout/site-header"
 import { buttonVariants } from "@/components/ui/button"
+import { ChatDemo } from "@/features/ai/chat-demo"
 import { avatarColorFor, initialsOf } from "@/lib/avatar-colors"
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo"
 
@@ -180,6 +182,22 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="border-t border-border bg-accent/40 px-6 py-16 md:px-10">
+        <div className="mx-auto grid max-w-5xl items-center gap-10 lg:grid-cols-[1fr_minmax(0,420px)]">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+              <SparklesIcon className="size-3.5" /> New
+            </span>
+            <h2 className="mt-3 font-heading text-2xl leading-tight font-extrabold sm:text-3xl">Snap the bill. Your AI assistant splits it.</h2>
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
+              Connect TripMate to Claude, ChatGPT or any MCP-compatible assistant. Send a photo of the receipt, say who had what, and the split lands in your trip - tax, service and discounts shared fairly.
+            </p>
+            <Link href="/ai" className={buttonVariants({ className: "mt-6 font-bold" })}>See how it works <ArrowRightIcon className="size-4" /></Link>
+          </div>
+          <ChatDemo />
+        </div>
+      </section>
+
       <section className="border-t border-border px-6 py-16 md:px-10">
         <h2 className="mb-10 text-center font-heading text-2xl font-extrabold">Frequently asked questions</h2>
         <div className="mx-auto max-w-3xl space-y-6">
@@ -193,7 +211,7 @@ export default function HomePage() {
       </section>
 
       <footer className="border-t border-border px-6 py-6 text-center">
-        <p className="text-[13px] text-muted-foreground">© {new Date().getFullYear()} {SITE_NAME}</p>
+        <p className="text-[13px] text-muted-foreground">© {new Date().getFullYear()} {SITE_NAME} · <Link href="/ai" className="hover:underline">Use with AI assistants</Link></p>
       </footer>
     </div>
   )
