@@ -1,4 +1,4 @@
-FROM node:24.11.1-alpine AS base
+FROM node:24.22.1-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
@@ -21,7 +21,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
-FROM node:24.11.1-alpine AS runtime
+FROM node:24.22.1-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
